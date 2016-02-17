@@ -9,6 +9,69 @@ function where-is($wally, [switch][bool]$useShellExecute = $true) {
     #Get-Command $wally
 }
 
+function get-envvar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current){
+    $val = @()
+    if ($user) {
+        $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::User);
+    }
+    if ($machine) {
+        $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::Machine);
+    }
+    if (!$user.IsPresent -and !$machine.IsPresent) {
+        $current = $true
+    }
+    if ($current) {
+        $val = invoke-expression "`$env:$name"
+    }
+    $p = $val.Split(';')
+    
+    return $p
+}
+
+
+function add-toenvvar {
+    [CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true)][string]$name, 
+    [Parameter(valuefrompipeline=$true)]$path, 
+    [switch][bool] $persistent, 
+    [switch][bool]$first
+)
+  
+process {
+      
+    $p = get-envvar $name
+    $p = $p | % { $_.trimend("\") }
+
+    $paths = @($path) 
+    $paths | % { 
+        $path = $_.trimend("\")
+        write-verbose "adding $path to $name"
+        if ($first) {
+            if ($path.length -eq 0 -or $path[0] -ine $path) {
+                $p = @($path) + $p
+            }
+        }
+        else {
+            if ($path -inotin $p) {
+                $p += $path
+            }
+        }
+    }
+    
+    $val = [string]::Join(";",$p)
+    
+    Invoke-Expression "`$env:$name = `$val"
+
+    [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process);
+    if ($persistent) {
+          write-warning "saving global $name"
+          [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Machine);
+    }
+}
+}
+
+
 function get-pathenv([switch][bool]$user, [switch][bool]$machine, [switch][bool]$current) {
     $path = @()
     if ($user) {
@@ -204,4 +267,32 @@ PROCESS {
     $fso.getfile($path.fullname).ShortPath
     } 
 } 
+}
+
+
+
+function install-modulelink {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param([Parameter(mandatory=$true)][string]$modulename) 
+    
+    
+    $target = $modulename
+    if ($target.EndsWith(".psm1")) {
+        $target = split-path -parent ((get-item $target).FullName)    
+    }
+    $target = (get-item $target).FullName
+    
+    $modulename = split-path -leaf $target
+    $path = "C:\Program Files\WindowsPowershell\Modules\$modulename"
+    if (test-path $path) {
+        if ($PSCmdlet.ShouldProcess("removing path $path")) {
+            # packagemanagement module may be locking some files in existing module dir
+            if (gmo powershellget) { rmo powershellget }
+            if (gmo packagemanagement) { rmo packagemanagement }
+            remove-item -Recurse $path -force
+            if (test-path $path) { remove-item -Recurse $path -force }
+        }
+    }
+    write-host "executing mklink /J $path $target"
+    cmd /C "mklink /J ""$path"" ""$target"""
 }
