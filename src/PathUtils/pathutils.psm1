@@ -23,7 +23,11 @@ function get-envvar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$us
     if ($current) {
         $val = invoke-expression "`$env:$name"
     }
-    $p = $val.Split(';')
+    if ($val -ne $null) {
+        $p = $val.Split(';')
+    } else {
+        $p = @()
+    }
     
     return $p
 }
@@ -170,24 +174,31 @@ function contains-path($path, [switch][bool]$show) {
     return $r
 }
 
-function refresh-env {
-[CmdletBinding()]
-param()
+
+function Refresh-EnvVar($name) {
+    
     $path = @()
-    $m = get-pathenv -machine
-    $u = get-pathenv -user
+    $m = get-envvar $name -machine
+    $u = get-envvar $name -user
 
-    write-verbose " # machine PATH:"
+    write-verbose " # machine $name :"
     write-verbose "$m"
-    write-verbose " # user    PATH:"
+    write-verbose " # user    $name :"
     write-verbose "$u"
-
-
+       
     $path += $m
     $path += $u
 
-    
-    $env:path = [string]::Join(";",$path)
+    $val = [string]::Join(";",$path)
+    invoke-expression "`$env:$name = `$val"
+}
+
+
+function Refresh-Env {
+[CmdletBinding()]
+param()
+    Refresh-EnvVar "Path"
+    Refresh-EnvVar "PsModulePath"  
 }
 
 
