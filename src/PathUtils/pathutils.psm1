@@ -27,7 +27,11 @@ function get-pathenv([switch][bool]$user, [switch][bool]$machine, [switch][bool]
     return $p
 }
 
-function add-topath([Parameter(valuefrompipeline=$true)]$path, [switch][bool] $persistent, [switch][bool]$first) {
+function add-topath {
+[CmdletBinding()]
+param([Parameter(valuefrompipeline=$true)]$path, [switch][bool] $persistent, [switch][bool]$first) 
+
+process {
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
 
@@ -54,6 +58,7 @@ function add-topath([Parameter(valuefrompipeline=$true)]$path, [switch][bool] $p
           write-warning "saving global PATH"
           [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Machine);
     }
+}
 }
 
 function remove-frompath($path, [switch][bool] $persistent) {
