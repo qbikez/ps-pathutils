@@ -1,5 +1,5 @@
 
-function where-is($wally, [switch][bool]$useShellExecute = $true) {
+function find-command($wally, [switch][bool]$useShellExecute = $true) {
     if ($useShellExecute) {
         cmd /c "where $wally"
     } else {
@@ -150,7 +150,7 @@ function remove-frompath($path, [switch][bool] $persistent) {
     }
 }
 
-function contains-path($path, [switch][bool]$show) {
+function test-envpath($path, [switch][bool]$show) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -175,7 +175,7 @@ function contains-path($path, [switch][bool]$show) {
 }
 
 
-function Refresh-EnvVar($name) {
+function update-EnvVar($name) {
     
     $path = @()
     $m = get-envvar $name -machine
@@ -194,16 +194,16 @@ function Refresh-EnvVar($name) {
 }
 
 
-function Refresh-Env {
+function update-Env {
 [CmdletBinding()]
 param()
-    Refresh-EnvVar "Path"
-    Refresh-EnvVar "PsModulePath"  
+    update-EnvVar "Path"
+    update-EnvVar "PsModulePath"  
 }
 
 
-function escape-regex($pattern) {
-    return $pattern.replace("\","\\")
+function get-escapedregex($pattern) {
+    return [Regex]::Escape($pattern)
 }
 
 function Get-RelativePath (
@@ -307,3 +307,10 @@ function install-modulelink {
     write-host "executing mklink /J $path $target"
     cmd /C "mklink /J ""$path"" ""$target"""
 }
+
+
+new-alias where-is get-command
+new-alias refresh-env update-env
+new-alias refreshenv refresh-env
+new-alias contains-path test-envpath
+new-alias escape-regex get-escapedregex
