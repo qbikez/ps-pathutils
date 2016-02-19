@@ -1,4 +1,5 @@
 import-module pester
+#import-module "$PSScriptRoot/../third-party/pester"  
 
 
 Describe "publishmap module test" {
