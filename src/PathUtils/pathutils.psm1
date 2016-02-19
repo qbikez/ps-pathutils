@@ -102,7 +102,7 @@ param(
     [Parameter(ParameterSetName="scoped")]
     [switch][bool]$current, 
     [Parameter(ParameterSetName="all")][switch][bool]$all
-
+)
  
     $scopespecified = $user.IsPresent -or $machine.IsPresent -or $current.IsPresent
     $path = @()

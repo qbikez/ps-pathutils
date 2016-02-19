@@ -1,14 +1,14 @@
 version: 1.0.{build}
 install:
 - git submodule update --init --recursive
-- ps: scripts//lib//init.ps1
-- ps: scripts//lib//restore.ps1
+- ps: scripts/lib/init.ps1
+- ps: scripts/lib/restore.ps1
 build_script:
 - ps: write-host "no need to build powershell"
 test_script:
-- ps: scripts//lib///test.appveyor.ps1
+- ps: scripts/lib/test.appveyor.ps1
 artifacts:
 - path: artifacts
 - path: src/publishmap
 deploy_script:
-- ps: scripts//lib//push.ps1 . -newversion
+- ps: scripts/lib/push.ps1 . -newversion
