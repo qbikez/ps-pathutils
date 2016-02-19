@@ -76,22 +76,45 @@ process {
 }
 
 
-function get-pathenv([switch][bool]$user, [switch][bool]$machine, [switch][bool]$current) {
+function get-pathenv {
+[CmdLetBinding(DefaultParameterSetName="scoped")]
+param(
+    [Parameter(ParameterSetName="scoped")]
+    [switch][bool]$user,
+    [Parameter(ParameterSetName="scoped")] 
+    [switch][bool]$machine, 
+    [Parameter(ParameterSetName="scoped")]
+    [switch][bool]$current, 
+    [Parameter(ParameterSetName="all")][switch][bool]$all
+)
+ 
+    $scopespecified = $user.IsPresent -or $machine.IsPresent -or $current.IsPresent
     $path = @()
+    $userpath = get-envvar "PATH" -user 
     if ($user) {
-        $path += [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User);
+        $path += $userpath
     }
-    if ($machine) {
-        $path += [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine);
+    $machinepath = get-envvar "PATH" -user
+    if ($machine -or !$scopespecified) {
+        $path += $machinepath
     }
     if (!$user.IsPresent -and !$machine.IsPresent) {
         $current = $true
     }
+    $currentPath = get-envvar "PATH" -current
     if ($current) {
-        $path = $env:path
+        $path = $currentPath
     }
-    $p = $Path.Split(';')
-    return $p
+    
+    if ($all) {
+        return @{
+            user = $userpath
+            machine = $machinepath
+            process = $currentPath
+        }
+    }
+    
+    return $path
 }
 
 function add-topath {
