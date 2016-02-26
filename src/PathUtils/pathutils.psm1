@@ -352,16 +352,17 @@ function test-junction($path) {
 
 function install-modulelink {
     [CmdletBinding(SupportsShouldProcess=$true)]
-    param([Parameter(mandatory=$true)][string]$modulename) 
+    param([Parameter(mandatory=$true)][string]$modulepath,
+        [Parameter(mandatory=$false)]$modulename) 
     
-    
-    $target = $modulename
+    $target = $modulepath
     if ($target.EndsWith(".psm1")) {
         $target = split-path -parent ((get-item $target).FullName)    
     }
     $target = (get-item $target).FullName
-    
-    $modulename = split-path -leaf $target
+    if ($modulename -eq $null) {
+        $modulename = split-path -leaf $target
+    }
     $path = "C:\Program Files\WindowsPowershell\Modules\$modulename"
     if (test-path $path) {
         if ($PSCmdlet.ShouldProcess("removing path $path")) {
