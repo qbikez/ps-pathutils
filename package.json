@@ -4,7 +4,7 @@
         "grunt-shell": "^1.1.2"
     },
     "scripts": {
-        "init": "powershell scripts/lib/init.ps1", 
+        "init": "git submodule update --init && powershell scripts/lib/init.ps1", 
         "restore": "powershell scripts/lib/restore.ps1",
         "test": "powershell scripts/lib/test.ps1",
         "code": "powershell scripts/start-code.ps1",
