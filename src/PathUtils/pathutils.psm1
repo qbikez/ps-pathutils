@@ -157,7 +157,7 @@ process {
         $p = Get-Pathenv -process
     }
     $p = $p | % { $_.trimend("\") }
-
+    $p = @($p)
     $paths = @($path) 
     $paths | % { 
         $path = $_.trimend("\")
