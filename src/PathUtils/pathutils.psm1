@@ -274,11 +274,9 @@ function Get-RelativePath (
 [Parameter(Mandatory=$true)][Alias("dir")][string] $from,
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
 ) {
-    
-    $dir = gi $from
     if (test-path $from) { 
         $it = (gi $from)
-        $dir = $it.fullname;  
+        if (!$) { $dir = $it.fullname }  
         if (!$it.psiscontainer) {
             #this is a file, we need a directory
             $dir = split-path -Parent $dir
@@ -287,7 +285,11 @@ function Get-RelativePath (
     else { 
         $dir = $from 
     }
-    if (test-path $to) { $FullName = (gi $to).fullname } else { $FullName = $to }
+    if (![System.io.path]::IsPathRooted($to) -and (test-path $to)) {
+         $FullName = (gi $to).fullname 
+    } else { 
+        $FullName = $to 
+    }
     
     
 
