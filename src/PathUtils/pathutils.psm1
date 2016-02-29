@@ -157,7 +157,7 @@ process {
         $p = Get-Pathenv -process
     }
     $p = $p | % { $_.trimend("\") }
-
+    $p = @($p)
     $paths = @($path) 
     $paths | % { 
         $path = $_.trimend("\")
@@ -270,23 +270,29 @@ function get-escapedregex($pattern) {
     return [Regex]::Escape($pattern)
 }
 
+function test-ispathrelative($path) {
+    if ([System.IO.Path]::isPathRooted($path)) { return $true }
+    if ($path -match "(?<drive>^[a-zA-Z]):(?<path>.*)") { return $true }
+    return $false
+}
+
 function Get-RelativePath (
 [Parameter(Mandatory=$true)][Alias("dir")][string] $from,
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
 ) {
+    
+    $dir = $from 
+
     if (test-path $from) { 
         $it = (gi $from)
-        if (!$) { $dir = $it.fullname }  
+        if (test-ispathrelative $from) { $dir = $it.fullname }  
         if (!$it.psiscontainer) {
             #this is a file, we need a directory
             $dir = split-path -Parent $dir
         }
     } 
-    else { 
-        $dir = $from 
-    }
-    if (![System.io.path]::IsPathRooted($to) -and (test-path $to)) {
-         $FullName = (gi $to).fullname 
+    if ((test-ispathrelative $to) -and (test-path $to)) {
+        $FullName = (gi $to).fullname 
     } else { 
         $FullName = $to 
     }
