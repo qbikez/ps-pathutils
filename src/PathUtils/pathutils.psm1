@@ -271,9 +271,14 @@ function get-escapedregex($pattern) {
 }
 
 function test-ispathrelative($path) {
-    if ([System.IO.Path]::isPathRooted($path)) { return $true }
-    if ($path -match "(?<drive>^[a-zA-Z]):(?<path>.*)") { return $true }
-    return $false
+    if ([System.IO.Path]::isPathRooted($path)) { return $false }
+    if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $false }
+    return $true
+}
+
+function get-drivesymbol($path) {
+    if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
+    return $null
 }
 
 function Get-RelativePath (
@@ -285,16 +290,24 @@ function Get-RelativePath (
 
     if (test-path $from) { 
         $it = (gi $from)
-        if (test-ispathrelative $from) { $dir = $it.fullname }  
+        if (test-ispathrelative $from) {
+             $dir = $it.fullname 
+            }  
         if (!$it.psiscontainer) {
             #this is a file, we need a directory
             $dir = split-path -Parent $dir
         }
     } 
-    if ((test-ispathrelative $to) -and (test-path $to)) {
-        $FullName = (gi $to).fullname 
-    } else { 
-        $FullName = $to 
+    
+    $FullName = $to 
+    if ((test-path $to)) {
+        if ((test-ispathrelative $to)) {
+            $FullName = (gi $to).fullname 
+        }
+        if ((get-drivesymbol $from) -ne (get-drivesymbol $to)) {
+            #maybe the drive symbol is just an alias?
+            $FullName = (gi $to).fullname 
+        }
     }
     
     
