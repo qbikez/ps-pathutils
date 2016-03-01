@@ -270,12 +270,39 @@ function get-escapedregex($pattern) {
     return [Regex]::Escape($pattern)
 }
 
+function Test-IsRelativePath ($path) {
+    return ![System.IO.Path]::IsPathRooted($path)
+}
+
+function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $from,
+[Parameter(Mandatory=$true)][string][Alias("fullname")] $to
+) {
+    if (test-path $from) { 
+        $it = (gi $from)
+        $dir = $it.fullname;  
+        if (!$it.psiscontainer) {
+            #this is a file, we need a directory
+            $dir = split-path -Parent $dir
+        }
+    } 
+    else { 
+        $dir = $from 
+    }
+    
+    $p = $dir/$to
+    if (test-path $p) {
+        return (gi $p).FullName
+    }
+    else {
+        return $p
+    }
+}
+
 function Get-RelativePath (
 [Parameter(Mandatory=$true)][Alias("dir")][string] $from,
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
 ) {
     
-    $dir = gi $from
     if (test-path $from) { 
         $it = (gi $from)
         $dir = $it.fullname;  
@@ -299,10 +326,14 @@ function Get-RelativePath (
     } 
     else {
         $commonPartLength = 0
-    
+        $lastslashidx = -10
         for($i = 0; $i -lt ([MAth]::Min($dir.Length, $FullName.Length)) -and $dir[$i] -ieq $FullName[$i]; $i++) {
             $commonPartLength++
+            if($dir[$i] -eq "\" -or $dir[$i] -eq "/") {
+                $lastslashidx = $i
+            }
         }
+        $commonPartLength = $lastslashidx + 1
         if ($commonPartLength -eq 0) {
             throw "Items '$dir' and '$fullname' have no common path"
         }
