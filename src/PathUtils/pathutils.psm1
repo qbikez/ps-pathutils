@@ -270,8 +270,10 @@ function get-escapedregex($pattern) {
     return [Regex]::Escape($pattern)
 }
 
-function Test-IsRelativePath ($path) {
-    return ![System.IO.Path]::IsPathRooted($path)
+function test-IsRelativePath($path) {
+    if ([System.IO.Path]::isPathRooted($path)) { return $false }
+    if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $false }
+    return $true
 }
 
 function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $from,
@@ -298,23 +300,37 @@ function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $fr
     }
 }
 
+function get-drivesymbol($path) {
+    if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
+    return $null
+}
+
 function Get-RelativePath (
 [Parameter(Mandatory=$true)][Alias("dir")][string] $from,
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
 ) {
-    
+    $dir = $from 
     if (test-path $from) { 
         $it = (gi $from)
-        $dir = $it.fullname;  
+        if (test-ispathrelative $from) {
+             $dir = $it.fullname 
+            }  
         if (!$it.psiscontainer) {
             #this is a file, we need a directory
             $dir = split-path -Parent $dir
         }
     } 
-    else { 
-        $dir = $from 
+    
+    $FullName = $to 
+    if ((test-path $to)) {
+        if ((test-ispathrelative $to)) {
+            $FullName = (gi $to).fullname 
+        }
+        if ((get-drivesymbol $from) -ne (get-drivesymbol $to)) {
+            #maybe the drive symbol is just an alias?
+            $FullName = (gi $to).fullname 
+        }
     }
-    if (test-path $to) { $FullName = (gi $to).fullname } else { $FullName = $to }
     
     
 
