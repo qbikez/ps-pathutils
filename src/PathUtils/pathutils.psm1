@@ -414,3 +414,4 @@ new-alias refresh-env update-env
 new-alias refreshenv refresh-env
 new-alias contains-path test-envpath
 new-alias escape-regex get-escapedregex
+new-alias Test-IsPathRelative Test-IsRelativePath
