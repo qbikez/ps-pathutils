@@ -310,9 +310,10 @@ function Get-RelativePath (
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
 ) {
     $dir = $from 
+    $bothabsolute = !(test-ispathrelative $from) -and !(test-ispathrelative $to)
     if (test-path $from) { 
         $it = (gi $from)
-        if (test-ispathrelative $from) {
+        if ((test-ispathrelative $from) -or $bothabsolute) {
              $dir = $it.fullname 
             }  
         if (!$it.psiscontainer) {
@@ -323,7 +324,7 @@ function Get-RelativePath (
     
     $FullName = $to 
     if ((test-path $to)) {
-        if ((test-ispathrelative $to)) {
+        if (((test-ispathrelative $to) -or $bothabsolute)) {
             $FullName = (gi $to).fullname 
         }
         if ((get-drivesymbol $from) -ne (get-drivesymbol $to)) {
@@ -431,3 +432,4 @@ new-alias refreshenv refresh-env
 new-alias contains-path test-envpath
 new-alias escape-regex get-escapedregex
 new-alias Test-IsPathRelative Test-IsRelativePath
+new-alias Get-PathRelative Get-RelativePath
