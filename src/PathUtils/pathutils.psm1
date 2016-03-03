@@ -325,7 +325,9 @@ param(
             #this is a file, we need a directory
             $dir = split-path -Parent $dir
         }
-    } 
+    } else {
+        write-verbose "path '$from' does not exist"
+    }
     
     $FullName = $to 
     if ((test-path $to)) {
@@ -339,6 +341,8 @@ param(
             Write-Verbose "different drive symbols. using full path for comparison: $($it.fullname)"
             $FullName = $it.fullname 
         }
+    } else {
+        write-verbose "path '$to' does not exist"
     }
     
     
@@ -359,7 +363,7 @@ param(
             }
         }
         $commonPartLength = $lastslashidx + 1
-        if ($commonPartLength -eq 0) {
+        if ($commonPartLength -le 0) {
             throw "Items '$dir' and '$fullname' have no common path"
         }
 
