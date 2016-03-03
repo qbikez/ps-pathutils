@@ -359,7 +359,7 @@ function Get-RelativePath (
         $commonDir = $FullName.Substring(0, $commonPartLength)
         $curdir = $dir.Substring($commonPartLength)
         $filerel = $fullname.Substring($commonPartLength)
-        $level = $curdir.Split($separator).Length    
+        $level = $curdir.Trim($separator).Split($separator).Length    
         $val = ""
         $dots = $val
         1..$level | % { $dots += "$separator.." }
