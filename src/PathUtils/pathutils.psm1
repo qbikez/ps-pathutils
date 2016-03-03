@@ -305,16 +305,20 @@ function get-drivesymbol($path) {
     return $null
 }
 
-function Get-RelativePath (
+function Get-RelativePath {
+[CmdletBinding()]
+param(
 [Parameter(Mandatory=$true)][Alias("dir")][string] $from,
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
-) {
+) 
     try {
     $dir = $from 
     $bothabsolute = !(test-ispathrelative $from) -and !(test-ispathrelative $to)
+    if ($bothabsolute) { Write-Verbose "Both paths are absolute" }
     if (test-path $from) { 
         $it = (gi $from)
         if ((test-ispathrelative $from) -or $bothabsolute) {
+             Write-Verbose "using full path for comparison: $($it.fullname)"
              $dir = $it.fullname 
             }  
         if (!$it.psiscontainer) {
@@ -326,11 +330,14 @@ function Get-RelativePath (
     $FullName = $to 
     if ((test-path $to)) {
         if (((test-ispathrelative $to) -or $bothabsolute)) {
-            $FullName = (gi $to).fullname 
+            $it = gi $to
+            Write-Verbose "using full path for comparison: $($it.fullname)"
+            $FullName = $it.fullname 
         }
         if ((get-drivesymbol $from) -ne (get-drivesymbol $to)) {
             #maybe the drive symbol is just an alias?
-            $FullName = (gi $to).fullname 
+            Write-Verbose "different drive symbols. using full path for comparison: $($it.fullname)"
+            $FullName = $it.fullname 
         }
     }
     
@@ -369,7 +376,7 @@ function Get-RelativePath (
 
     return $p.Trim($separator)
     } catch {
-        throw "failed to get relative path from '$from' to '$to': $($_.Exception)"
+        throw "failed to get relative path from '$from' to '$to': $($_.Exception)`r`n$($_.ScriptStackTrace)"
     }
 }
 
