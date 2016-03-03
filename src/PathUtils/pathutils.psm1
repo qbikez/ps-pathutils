@@ -436,3 +436,5 @@ new-alias contains-path test-envpath
 new-alias escape-regex get-escapedregex
 new-alias Test-IsPathRelative Test-IsRelativePath
 new-alias Get-PathRelative Get-RelativePath
+
+Export-moduleMember -Function * -Alias *
