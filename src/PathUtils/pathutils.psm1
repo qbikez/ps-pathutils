@@ -309,6 +309,7 @@ function Get-RelativePath (
 [Parameter(Mandatory=$true)][Alias("dir")][string] $from,
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
 ) {
+    try {
     $dir = $from 
     $bothabsolute = !(test-ispathrelative $from) -and !(test-ispathrelative $to)
     if (test-path $from) { 
@@ -367,7 +368,9 @@ function Get-RelativePath (
     }
 
     return $p.Trim($separator)
-    
+    } catch {
+        throw "failed to get relative path from '$from' to '$to': $($_.Exception)"
+    }
 }
 
 
