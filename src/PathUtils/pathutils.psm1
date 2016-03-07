@@ -54,7 +54,7 @@ param(
     [Parameter(Mandatory=$true)][string]$name, 
     [Parameter(valuefrompipeline=$true)]$path, 
     [switch][bool] $persistent, 
-    [switch][bool]$first
+    [switch][bool] $first
 )
   
 process {
@@ -63,8 +63,12 @@ process {
     $p = $p | % { $_.trimend("\") }
 
     $paths = @($path) 
-    $paths | % { 
-        $path = $_.trimend("\")
+    foreach ($_ in $paths) { 
+        $path = $_.replace("/","\\").trimend("\")
+        if ($p -contains $path) {
+            write-verbose "Env var '$name' already contains path '$path'"
+            continue
+        }
         write-verbose "adding $path to $name"
         if ($first) {
             if ($path.length -eq 0 -or $path[0] -ine $path) {
