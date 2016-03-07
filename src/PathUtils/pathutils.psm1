@@ -407,9 +407,14 @@ PROCESS {
 }
 
 function test-junction($path) {
-    $_ = $path
+    $_ = get-item $path
     $mode = "$($_.Mode)$(if($_.Attributes -band [IO.FileAttributes]::ReparsePoint) {'J'})"
     return $mode -match "J"        
+}
+
+function Get-JunctionTarget($p_path)
+{
+    fsutil reparsepoint query $p_path | where-object { $_ -imatch 'Print Name:' } | foreach-object { $_ -replace 'Print Name\:\s*','' }
 }
 
 function install-modulelink {
@@ -439,6 +444,40 @@ function install-modulelink {
     cmd /C "mklink /J ""$path"" ""$target"""
 }
 
+
+function Update-ModuleLink {
+    [CmdletBinding(SupportsShouldProcess=$false)]
+    param([Parameter(mandatory=$true)]$module)
+    $modulename = $module
+    $path = "C:\Program Files\WindowsPowershell\Modules\$modulename"
+    if (test-path $path) {
+        pushd
+        try {
+            if (!(test-junction $path)) {
+                throw "'$path' does not seem like a junction to me"
+            }
+            $target = get-junctiontarget $path
+            cd $target
+            if (".hg","..\.hg","..\..\.hg" | ? { test-path $_ } ) {
+                write-host "running hg pull in '$target'"
+                hg pull
+                hg update
+            } elseif (".git","..\.git","..\..\.git" | ? { test-path $_ } ) {
+                write-host "running git pull in '$target'"
+                git pull
+            } else {
+                throw "path '$target' does not contain any recognizable VCS repo (git, hg)"
+            }
+        }
+        finally {
+            popd
+        }
+    }
+    else {
+        throw "Module '$module' not found at path '$path'"
+    }
+    
+}
 
 new-alias where-is get-command
 new-alias refresh-env update-env
