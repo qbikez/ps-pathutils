@@ -73,3 +73,54 @@ Describe "relative path feature" {
     }
     }
 }
+
+Describe "env variable manipulation" {
+    $env:test = ""
+    $p1 = "c:\test\test1"
+    $p2 = "c:\test\test2"
+    $p3 = "c:\test\test3"
+    
+    It "Should add path" {
+        add-toenvvar "test" $p1
+        $val = @(get-envvar "test")
+        $val[0] | Should Be $p1
+        $val.length | Should Be 1
+    }
+    It "Should add at the end path" {
+        add-toenvvar "test" $p2
+        $val = @(get-envvar "test")
+        $val[$val.length - 1] | Should Be $p2
+        $val.length | Should Be 2
+    }
+        
+    It "Should add at the beginning with -first" {
+        add-toenvvar "test" $p3 -first
+        $val = @(get-envvar "test")
+        $val[0] | Should Be $p3
+        $val.length | Should Be 3
+    }
+    
+    It "Should not add existing path" {
+        $val0 = @(get-envvar "test")
+       
+        add-toenvvar "test" $p3 -first
+        $val = @(get-envvar "test")
+        $val.length | Should Be $val0.length
+       
+        add-toenvvar "test" $p3
+        $val = @(get-envvar "test")
+        $val.length | Should Be $val0.length
+    }
+    
+    $p4 = "c:/test/test4/"
+    $p4conv = "c:\test\test4"
+    
+    
+    It "Should convert slashes to backslashes" {        
+        $val0 = @(get-envvar "test")
+        add-toenvvar "test" $p4
+        $val = @(get-envvar "test")
+        $val.length | Should Be ($val0.length + 1)
+        $val[$val.Length - 1] | Should Be $p4conv
+    }
+}

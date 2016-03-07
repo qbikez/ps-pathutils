@@ -60,11 +60,11 @@ param(
 process {
       
     $p = get-envvar $name
-    $p = $p | % { $_.trimend("\") }
+    $p = @($p | % { $_.trimend("\") })
 
     $paths = @($path) 
     foreach ($_ in $paths) { 
-        $path = $_.replace("/","\\").trimend("\")
+        $path = $_.replace("/","\").trimend("\")
         if ($p -contains $path) {
             write-verbose "Env var '$name' already contains path '$path'"
             continue
