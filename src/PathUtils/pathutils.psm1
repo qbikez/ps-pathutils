@@ -316,6 +316,9 @@ param(
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to
 ) 
     try {
+        write-verbose "get relative paths of:"
+        write-verbose "$from"
+        write-verbose "$to"
     $dir = $from 
     $bothabsolute = !(test-ispathrelative $from) -and !(test-ispathrelative $to)
     if ($bothabsolute) { Write-Verbose "Both paths are absolute" }
@@ -328,6 +331,7 @@ param(
         if (!$it.psiscontainer) {
             #this is a file, we need a directory
             $dir = split-path -Parent $dir
+            write-verbose "changed 'from' from file to directory: $dir"
         }
     } else {
         write-verbose "path '$from' does not exist"
@@ -341,8 +345,9 @@ param(
             $FullName = $it.fullname 
         }
         if ((get-drivesymbol $from) -ne (get-drivesymbol $to)) {
+            $it = gi $to
             #maybe the drive symbol is just an alias?
-            Write-Verbose "different drive symbols. using full path for comparison: $($it.fullname)"
+            Write-Verbose "different drive symbols '$(get-drivesymbol $from)' and '$(get-drivesymbol $to)'. using full path for comparison: $($it.fullname)"
             $FullName = $it.fullname 
         }
     } else {
