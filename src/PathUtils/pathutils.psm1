@@ -4,7 +4,7 @@ finds the specified command on system PATH
 .Description 
 uses `where` command to find commands on PATH
 #>
-function find-command($wally, [switch][bool]$useShellExecute = $true) {
+function Find-Command($wally, [switch][bool]$useShellExecute = $true) {
     if ($useShellExecute) {
         return cmd /c "where $wally"
     } else {
@@ -28,7 +28,7 @@ set variable in machine scope (persistent)
 .Parameter current 
 (default=true) set variable in current's process scope
 #>
-function set-envvar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandatory=$true)] $val, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current = $true){
+function Set-EnvVar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandatory=$true)] $val, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current = $true){
     if ($current) {
         write-host "scope=Process: setting env var '$name' to '$val'" 
         [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process);
@@ -56,7 +56,7 @@ get variable from machine scope (persistent)
 .Parameter current 
 (default=true) get variable from current process scope
 #>
-function get-envvar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current){
+function Get-EnvVar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current){
     $val = @()
     if ($user) {
         $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::User);
@@ -94,7 +94,7 @@ save the variable in machine scope
 .Parameter first 
 preppend the value instead of appending
 #>
-function add-toenvvar {
+function Add-ToEnvVar {
     [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$name, 
@@ -153,7 +153,7 @@ Get the value from process scope
 .Parameter all 
 Return values for each scope
 #>
-function get-pathenv {
+function Get-PathEnv {
 [CmdLetBinding(DefaultParameterSetName="scoped")]
 param(
     [Parameter(ParameterSetName="scoped")]
@@ -222,7 +222,7 @@ preppend the value instead of appending
 .PARAMETER user 
 save to user scope
 #>
-function add-topath {
+function Add-ToPath {
 [CmdletBinding()]
 param([Parameter(valuefrompipeline=$true)]$path, [Alias("p")][switch][bool] $persistent, [switch][bool]$first, [switch][bool] $user) 
 
@@ -278,7 +278,7 @@ path to remove-frompath
 .Parameter persistent 
 save modified path in machine scope
 #>
-function remove-frompath($path, [switch][bool] $persistent) {
+function Remove-FromPath($path, [switch][bool] $persistent) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -309,7 +309,7 @@ function remove-frompath($path, [switch][bool] $persistent) {
     should return the found path value
 
 #>
-function test-envpath($path, [switch][bool]$show) {
+function Test-EnvPath($path, [switch][bool]$show) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -339,7 +339,7 @@ function test-envpath($path, [switch][bool]$show) {
     .parameter name 
     variable name
 #>
-function update-EnvVar($name) {
+function Ipdate-EnvVar($name) {
     
     $path = @()
     $m = get-envvar $name -machine
@@ -361,7 +361,7 @@ function update-EnvVar($name) {
     .synopsis 
     reloads PATH and PsModulePath variables fro registry
 #>
-function update-Env {
+function Update-Env {
 [CmdletBinding()]
 param()
     update-EnvVar "Path"
@@ -372,7 +372,7 @@ param()
     .synopsis 
     returns a string that is ecaped for REGEX use
 #>
-function get-escapedregex([Parameter(ValueFromPipeline=$true,Position=0)]$pattern) {
+function Get-EscapedRegex([Parameter(ValueFromPipeline=$true,Position=0)]$pattern) {
     process {
         return [Regex]::Escape($pattern)
     }
@@ -382,7 +382,7 @@ function get-escapedregex([Parameter(ValueFromPipeline=$true,Position=0)]$patter
     .synopsis 
     tests if given path is relative 
 #>
-function test-IsRelativePath($path) {
+function Test-IsRelativePath($path) {
     if ([System.IO.Path]::isPathRooted($path)) { return $false }
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $false }
     return $true
@@ -430,7 +430,7 @@ function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $fr
     .synopsis 
     returns drive symbol for path (i.e. `c`)
 #>
-function get-drivesymbol($path) {
+function Get-DriveSymbol($path) {
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
     return $null
 }
@@ -557,7 +557,7 @@ PROCESS {
     .synopsis 
     checks if given path is a Junction (File system directory link)
 #>
-function test-junction($path) {
+function Test-Junction($path) {
     $_ = get-item $path
     $mode = "$($_.Mode)$(if($_.Attributes -band [IO.FileAttributes]::ReparsePoint) {'J'})"
     return $mode -match "J"        
@@ -583,7 +583,7 @@ function Get-JunctionTarget($p_path)
     .parameter modulename 
     if `modulepath` contains multiple modules, specify a module name
 #>
-function install-modulelink {
+function Install-ModuleLink {
     [CmdletBinding(SupportsShouldProcess=$true)]
     param([Parameter(mandatory=$true)][string]$modulepath,
         [Parameter(mandatory=$false)]$modulename) 
@@ -652,11 +652,11 @@ function Update-ModuleLink {
     
 }
 
-new-alias where-is get-command
-new-alias refresh-env update-env
-new-alias refreshenv refresh-env
-new-alias contains-path test-envpath
-new-alias escape-regex get-escapedregex
+new-alias Where-Is get-command
+new-alias Refresh-Env update-env
+new-alias RefreshEnv refresh-env
+new-alias Contains-Path test-envpath
+new-alias Escape-Regex get-escapedregex
 new-alias Test-IsPathRelative Test-IsRelativePath
 new-alias Get-PathRelative Get-RelativePath
 
