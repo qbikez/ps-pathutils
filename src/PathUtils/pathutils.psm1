@@ -1,6 +1,8 @@
 <#
-.Synopsis finds the specified command on system PATH
-.Description uses `where` command to find commands on PATH
+.Synopsis 
+finds the specified command on system PATH
+.Description 
+uses `where` command to find commands on PATH
 #>
 function find-command($wally, [switch][bool]$useShellExecute = $true) {
     if ($useShellExecute) {
@@ -13,12 +15,18 @@ function find-command($wally, [switch][bool]$useShellExecute = $true) {
 }
 
 <#
-.Synopsis Set Environment variable 
-.Parameter name variable name
-.Parameter val variable value
-.Parameter user set variable in user scope (persistent)
-.Parameter machine set variable in machine scope (persistent)
-.Parameter current (default=true) set variable in current's process scope
+.Synopsis 
+Set Environment variable 
+.Parameter name 
+variable name
+.Parameter val 
+variable value
+.Parameter user 
+set variable in user scope (persistent)
+.Parameter machine 
+set variable in machine scope (persistent)
+.Parameter current 
+(default=true) set variable in current's process scope
 #>
 function set-envvar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandatory=$true)] $val, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current = $true){
     if ($current) {
@@ -37,11 +45,16 @@ function set-envvar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandat
 
 
 <#
-.Synopsis Get Environment variable value
-.Parameter name variable name
-.Parameter user get variable from user scope (persistent)
-.Parameter machine get variable from machine scope (persistent)
-.Parameter current (default=true) get variable from current process scope
+.Synopsis 
+Get Environment variable value
+.Parameter name 
+variable name
+.Parameter user
+get variable from user scope (persistent)
+.Parameter machine
+get variable from machine scope (persistent)
+.Parameter current 
+(default=true) get variable from current process scope
 #>
 function get-envvar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current){
     $val = @()
@@ -68,12 +81,18 @@ function get-envvar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$us
 
 
 <#
-.Synopsis Add s value to enviroment variable (like PATH)
-.Description assumes that lists are separated by `;`
-.Parameter name variable name
-.Parameter path path to add to the list
-.Parameter persistent save the variable in machine scope
-.Parameter first preppend the value instead of appending
+.Synopsis 
+Add s value to enviroment variable (like PATH)
+.Description 
+assumes that lists are separated by `;`
+.Parameter name 
+variable name
+.Parameter path 
+path to add to the list
+.Parameter persistent 
+save the variable in machine scope
+.Parameter first 
+preppend the value instead of appending
 #>
 function add-toenvvar {
     [CmdletBinding()]
@@ -123,11 +142,16 @@ process {
 
 
 <#
-.Synopsis Gets PATH env variable
-.Parameter user Get the value from user scope
-.Parameter machine (default) Get the value from machine scope
-.Parameter process Get the value from process scope
-.Parameter all Return values for each scope
+.Synopsis 
+Gets PATH env variable
+.Parameter user 
+Get the value from user scope
+.Parameter machine 
+(default) Get the value from machine scope
+.Parameter process 
+Get the value from process scope
+.Parameter all 
+Return values for each scope
 #>
 function get-pathenv {
 [CmdLetBinding(DefaultParameterSetName="scoped")]
@@ -185,12 +209,18 @@ param(
 
 
 <#
-.Synopsis Addsthe specified path to PATH env variable
-.Description assumes that paths on PATH are separated by `;`
-.Parameter path path to add to the list
-.Parameter persistent save the variable in machine scope
-.Parameter first preppend the value instead of appending
-.Parameter user save to user scope
+.SYNOPSIS 
+Adds the specified path to PATH env variable
+.DESCRIPTION 
+assumes that paths on PATH are separated by `;`
+.PARAMETER path 
+path to add to the list
+.PARAMETER persistent 
+save the variable in machine scope
+.PARAMETER first 
+preppend the value instead of appending
+.PARAMETER user 
+save to user scope
 #>
 function add-topath {
 [CmdletBinding()]
@@ -241,9 +271,12 @@ process {
 }
 
 <#
-.Synopsis removes path from PATH env variable
-.Parameter path path to remove-frompath
-.Parameter persistent save modified path in machine scope
+.Synopsis 
+removes path from PATH env variable
+.Parameter path 
+path to remove-frompath
+.Parameter persistent 
+save modified path in machine scope
 #>
 function remove-frompath($path, [switch][bool] $persistent) {
     $paths = @($path) 
@@ -268,9 +301,12 @@ function remove-frompath($path, [switch][bool] $persistent) {
 }
 
 <#
-    .Synopsis tests if specified path is in PATH env variable
-    .Parameter path path to test-envpath
-    .Parameter show should return the found path value
+    .Synopsis 
+    tests if specified path is in PATH env variable
+    .Parameter path 
+    path to test-envpath
+    .Parameter show 
+    should return the found path value
 
 #>
 function test-envpath($path, [switch][bool]$show) {
@@ -298,8 +334,10 @@ function test-envpath($path, [switch][bool]$show) {
 }
 
 <#
-    .synopsis Reloads specified env variable from Registry
-    .parameter name variable name
+    .synopsis 
+    Reloads specified env variable from Registry
+    .parameter name 
+    variable name
 #>
 function update-EnvVar($name) {
     
@@ -320,7 +358,8 @@ function update-EnvVar($name) {
 }
 
 <#
-    .synopsis reloads PATH and PsModulePath variables fro registry
+    .synopsis 
+    reloads PATH and PsModulePath variables fro registry
 #>
 function update-Env {
 [CmdletBinding()]
@@ -330,7 +369,8 @@ param()
 }
 
 <#
-    .synopsis returns a string that is ecaped for REGEX use
+    .synopsis 
+    returns a string that is ecaped for REGEX use
 #>
 function get-escapedregex([Parameter(ValueFromPipeline=$true,Position=0)]$pattern) {
     process {
@@ -339,7 +379,8 @@ function get-escapedregex([Parameter(ValueFromPipeline=$true,Position=0)]$patter
 }
 
 <#
-    .synopsis tests if given path is relative 
+    .synopsis 
+    tests if given path is relative 
 #>
 function test-IsRelativePath($path) {
     if ([System.IO.Path]::isPathRooted($path)) { return $false }
@@ -348,9 +389,12 @@ function test-IsRelativePath($path) {
 }
 
 <#
-    .synopsis joins two paths and returns absolute path
-    .parameter from base directory or file
-    .parameter to second path to join 
+    .synopsis 
+    joins two paths and returns absolute path
+    .parameter from 
+    base directory or file
+    .parameter to 
+    second path to join 
 
     .example
     Get full path for a file
@@ -383,7 +427,8 @@ function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $fr
 }
 
 <#
-    .synopsis returns drive symbol for path (i.e. `c`)
+    .synopsis 
+    returns drive symbol for path (i.e. `c`)
 #>
 function get-drivesymbol($path) {
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
@@ -391,10 +436,14 @@ function get-drivesymbol($path) {
 }
 
 <#  
-    .synopsis calculates relative path
-    .description when given a base path, calculates relative path to the other file location
-    .parameter from base path (will calculate path relative to this location)
-    .parameter to target file or directory
+    .synopsis 
+    calculates relative path
+    .description 
+    when given a base path, calculates relative path to the other file location
+    .parameter from 
+    base path (will calculate path relative to this location)
+    .parameter to 
+    target file or directory
 #>
 function Get-RelativePath {
 [CmdletBinding()]
@@ -505,7 +554,8 @@ PROCESS {
 }
 
 <#
-    .synopsis checks if given path is a Junction (File system directory link)
+    .synopsis 
+    checks if given path is a Junction (File system directory link)
 #>
 function test-junction($path) {
     $_ = get-item $path
@@ -514,7 +564,8 @@ function test-junction($path) {
 }
 
 <#
-    .synopsis return junction taget directory
+    .synopsis 
+    return junction taget directory
 #>
 function Get-JunctionTarget($p_path)
 {
@@ -522,11 +573,15 @@ function Get-JunctionTarget($p_path)
 }
 
 <#
-    .synopsis installs a module as a linked directory on `PsModulePath`
-    .description this function creates a link to a module 
+    .synopsis 
+    installs a module as a linked directory on `PsModulePath`
+    .description 
+    this function creates a link to a module 
     in `C:\Program Files\WindowsPowershell\Modules` directory
-    .parameter modulepath path to installed module (may be a adirectory or .psm1 file)
-    .parameter modulename if `modulepath` contains multiple modules, specify a module name
+    .parameter modulepath 
+    path to installed module (may be a adirectory or .psm1 file)
+    .parameter modulename 
+    if `modulepath` contains multiple modules, specify a module name
 #>
 function install-modulelink {
     [CmdletBinding(SupportsShouldProcess=$true)]
@@ -556,8 +611,10 @@ function install-modulelink {
 }
 
 <#
-    .synopsis updates specified linked module from source control
-    .description if a module is a linked directory, that is under
+    .synopsis 
+    updates specified linked module from source control
+    .description 
+    if a module is a linked directory, that is under
     GIT or HG source control, then pull the newest changes and
     update the repo
 #>
