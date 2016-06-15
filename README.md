@@ -8,7 +8,9 @@ Installation
 
 Install from [PowershellGallery](http://www.powershellgallery.com/packages/PathUtils):
 
+```shellsession
     PS> Install-Module -Name PathUtils
+```
 
 Usage
 =====
