@@ -28,14 +28,14 @@ Usage: java [-options] class [args...]
 
 ##### Refresh PATH variable (i.e. when modified by some other process)
 
-```PowerShell
+```console
 PS> Refresh-Env
 ```
 
 ##### Use a PowerShell module directly from source control
 Let's say you found a usefull PowerShell module, like this one and you want to hack a little on it. Instead of dropping it in your `PsModulesPath`, you could use `mklink` to add a link to it in some predefined modules location.
 
-```PowerShell
+```console
 PS> git clone https://github.com/qbikez/ps-pathutils
 PS> Install-ModuleLink ps-pathutils/src/pathutils
 ```
@@ -44,7 +44,7 @@ PS> Install-ModuleLink ps-pathutils/src/pathutils
 
 While you're onto that, you can pull latest changes for this linked module, using `Update-ModuleLink`:
 
-```PowerShell
+```console
 PS> update-modulelink pathutils
 running git pull in 'C:\src\ps-modules\pathutils\src\pathutils'
 Already up-to-date.
