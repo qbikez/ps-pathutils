@@ -8,8 +8,8 @@ Installation
 
 Install from [PowershellGallery](http://www.powershellgallery.com/packages/PathUtils):
 
-```PowerShell
-PS> Install-Module -Name PathUtils
+```console
+> Install-Module -Name PathUtils
 ```
 
 Usage
@@ -28,14 +28,14 @@ Usage: java [-options] class [args...]
 
 ##### Refresh PATH variable (i.e. when modified by some other process)
 
-```PowerShell
+```console
 > Refresh-Env
 ```
 
 ##### Use a PowerShell module directly from source control
 Let's say you found a usefull PowerShell module, like this one and you want to hack a little on it. Instead of dropping it in your `PsModulesPath`, you could use `mklink` to add a link to it in some predefined modules location.
 
-```PowerShell
+```console
 > git clone https://github.com/qbikez/ps-pathutils
 > Install-ModuleLink ps-pathutils/src/pathutils
 ```
@@ -44,7 +44,7 @@ Let's say you found a usefull PowerShell module, like this one and you want to h
 
 While you're onto that, you can pull latest changes for this linked module, using `Update-ModuleLink`:
 
-```PowerShell
+```console
 > update-modulelink pathutils
 running git pull in 'C:\src\ps-modules\pathutils\src\pathutils'
 Already up-to-date.
