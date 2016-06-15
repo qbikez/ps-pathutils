@@ -17,9 +17,9 @@ Usage
 
 ##### Add some path to PATH variable:
 
-```PowerShell
-PS> "c:\Program Files\Java\jdk1.8.0_74\bin\" | Add-ToPath
-PS> java
+```console
+> "c:\Program Files\Java\jdk1.8.0_74\bin\" | Add-ToPath
+> java
 Usage: java [-options] class [args...]
      (to execute a class)
 ```
