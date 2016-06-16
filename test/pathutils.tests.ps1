@@ -129,4 +129,8 @@ Describe "env variable manipulation" {
         $val.length | Should Be ($val0.length + 1)
         $val[$val.Length - 1] | Should Be $p4conv
     }
+
+    It "Should update environment" {
+        Refresh-Env
+    }
 }

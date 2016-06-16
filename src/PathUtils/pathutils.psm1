@@ -339,7 +339,7 @@ function Test-EnvPath($path, [switch][bool]$show) {
     .parameter name 
     variable name
 #>
-function Ipdate-EnvVar($name) {
+function Update-EnvVar($name) {
     
     $path = @()
     $m = get-envvar $name -machine
