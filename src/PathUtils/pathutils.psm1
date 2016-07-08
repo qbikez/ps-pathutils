@@ -276,19 +276,30 @@ path to remove-frompath
 .Parameter persistent 
 save modified path in machine scope
 #>
-function Remove-FromPath([Parameter(Mandatory=$true)]$path, [switch][bool] $persistent) {
+function Remove-FromPath { 
+    [CmdletBinding()]
+    param([Parameter(Mandatory=$true)]$path, [switch][bool] $persistent) 
     $paths = @($path) 
     $p = $env:Path.Split(';')
-    $p = $p | % { $_.trimend("\") }
+    $defaultSlash = "\"
+    $altSlash = "/" 
+    $p = $p | % { $_.replace($altSlash, $defaultSlash).trimEnd($defaultSlash) }
+    $removed = @()
     $paths | % { 
-        $path = $_
+        $path = $_.replace($altSlash, $defaultSlash).trimEnd($defaultSlash)
         $found = $p | ? { $_ -ieq $path }
         if ($found -ne $null) {
             write-verbose "found $($found.count) matches"
-            $p = $p | ? { !($_ -ieq $path) }    
+            $p = @($p | ? { !($_ -ieq $path) })    
+            $removed += $found
         }
     }
 
+    if ($removed.length -eq 0) {
+        write-warning "path '$paths' not found in PATH"
+    }
+
+  
     $env:path = [string]::Join(";",$p)
 
     [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Process);

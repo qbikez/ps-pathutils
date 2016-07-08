@@ -143,5 +143,87 @@ Describe "env variable manipulation" {
 
         $env:test1 | Should Be $val
     }
+
+      It "Should remove paths" {
+        $p1 = "c:\test\test1"
+        $p2 = "c:\test\test2"
+        $p3 = "c:\test\test3"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath  $p1
+            add-topath $p2
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 2
+
+            remove-frompath $p1
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
+
+     It "Should remove paths with different slashes" {
+        $p1 = "c:\test\test1"
+        $p2 = "c:/test/test1"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath $p1
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+            remove-frompath $p2
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 0
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
+
+     It "Should remove paths with trailing slashes" {
+        $p1 = "c:\test\test1\"
+        $p2 = "c:\test\test1"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath $p1
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+            remove-frompath $p2
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 0
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
+
+    It "Should remove paths with missing trailing slashes" {
+        $p1 = "c:\test\test1"
+        $p2 = "c:\test\test1\"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath $p1
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+            remove-frompath $p2
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 0
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
     
 }
