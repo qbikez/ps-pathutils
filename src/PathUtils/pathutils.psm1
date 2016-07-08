@@ -1,5 +1,5 @@
 
-function find-command($wally, [switch][bool]$useShellExecute = $true) {
+function Find-Command($wally, [switch][bool]$useShellExecute = $true) {
     if ($useShellExecute) {
         cmd /c "where $wally"
     } else {
@@ -9,7 +9,7 @@ function find-command($wally, [switch][bool]$useShellExecute = $true) {
     #Get-Command $wally
 }
 
-function set-envvar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandatory=$true)] $val, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current = $true){
+function Set-EnvVar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandatory=$true)] $val, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current = $true){
     if ($current) {
         write-host "scope=Process: setting env var '$name' to '$val'" 
         [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process);
@@ -24,7 +24,7 @@ function set-envvar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandat
     }
 }
 
-function get-envvar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current){
+function Get-EnvVar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current){
     $val = @()
     if ($user) {
         $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::User);
@@ -48,7 +48,7 @@ function get-envvar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$us
 }
 
 
-function add-toenvvar {
+function Add-ToEnvVar {
     [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$name, 
@@ -95,7 +95,7 @@ process {
 }
 
 
-function get-pathenv {
+function Get-PathEnv {
 [CmdLetBinding(DefaultParameterSetName="scoped")]
 param(
     [Parameter(ParameterSetName="scoped")]
@@ -148,7 +148,7 @@ param(
     return $path
 }
 
-function add-topath {
+function Add-ToPath {
 [CmdletBinding()]
 param([Parameter(valuefrompipeline=$true)]$path, [Alias("p")][switch][bool] $persistent, [switch][bool]$first, [switch][bool] $user) 
 
@@ -196,7 +196,7 @@ process {
 }
 }
 
-function remove-frompath($path, [switch][bool] $persistent) {
+function Remove-FromPath($path, [switch][bool] $persistent) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -218,7 +218,7 @@ function remove-frompath($path, [switch][bool] $persistent) {
     }
 }
 
-function test-envpath($path, [switch][bool]$show) {
+function Test-EnvPath($path, [switch][bool]$show) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -243,7 +243,7 @@ function test-envpath($path, [switch][bool]$show) {
 }
 
 
-function update-EnvVar($name) {
+function Update-EnvVar($name) {
     
     $path = @()
     $m = get-envvar $name -machine
@@ -262,7 +262,7 @@ function update-EnvVar($name) {
 }
 
 
-function update-Env {
+function Update-Env {
 [CmdletBinding()]
 param()
     update-EnvVar "Path"
@@ -270,11 +270,11 @@ param()
 }
 
 
-function get-escapedregex($pattern) {
+function Get-EscapedRegex($pattern) {
     return [Regex]::Escape($pattern)
 }
 
-function test-IsRelativePath($path) {
+function Test-IsRelativePath($path) {
     if ([System.IO.Path]::isPathRooted($path)) { return $false }
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $false }
     return $true
@@ -304,7 +304,7 @@ function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $fr
     }
 }
 
-function get-drivesymbol($path) {
+function Get-DriveSymbol($path) {
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
     return $null
 }
@@ -410,7 +410,7 @@ PROCESS {
 } 
 }
 
-function test-junction($path) {
+function Test-Junction($path) {
     $_ = get-item $path
     $mode = "$($_.Mode)$(if($_.Attributes -band [IO.FileAttributes]::ReparsePoint) {'J'})"
     return $mode -match "J"        
@@ -421,7 +421,7 @@ function Get-JunctionTarget($p_path)
     fsutil reparsepoint query $p_path | where-object { $_ -imatch 'Print Name:' } | foreach-object { $_ -replace 'Print Name\:\s*','' }
 }
 
-function install-modulelink {
+function Install-ModuleLink {
     [CmdletBinding(SupportsShouldProcess=$true)]
     param([Parameter(mandatory=$true)][string]$modulepath,
         [Parameter(mandatory=$false)]$modulename) 
@@ -483,7 +483,7 @@ function Update-ModuleLink {
     
 }
 
-new-alias where-is get-command
+new-alias where-is find-command
 new-alias refresh-env update-env
 new-alias refreshenv refresh-env
 new-alias contains-path test-envpath
