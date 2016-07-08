@@ -98,6 +98,14 @@ Describe "env variable manipulation" {
         $val[$val.length - 1] | Should Be $p2
         $val.length | Should Be 2
     }
+
+    It "Should update env var" {
+        $val = "123654"
+        [System.Environment]::SetEnvironmentVariable("test", $val, [System.EnvironmentVariableTarget]::Machine)
+        update-envvar "test"
+
+        $env:test | Should Be $val
+    }
         
     It "Should add at the beginning with -first" {
         add-toenvvar "test" $p3 -first
@@ -129,4 +137,5 @@ Describe "env variable manipulation" {
         $val.length | Should Be ($val0.length + 1)
         $val[$val.Length - 1] | Should Be $p4conv
     }
+    
 }
