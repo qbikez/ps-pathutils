@@ -46,6 +46,12 @@ Describe "relative path feature" {
             create = $true
         }
         @{
+            path1 = ".\test\sln\Sample.Solution\Sample.Solution.sln";
+            path2 = "testdrive:\test\packages\"
+            expected = "..\..\packages" 
+            create = $false
+        }
+        @{
             path1 = "testdrive:\test\sln\Sample.Solution\";
             path2 = "testdrive:\test\packages\"
             expected = "..\..\packages" 

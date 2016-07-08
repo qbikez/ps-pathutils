@@ -1,4 +1,6 @@
 {
+    "name": "pathutils",
+    "version": "",
     "devDependencies": {
         "grunt": "^0.4.5",
         "grunt-shell": "^1.1.2"
