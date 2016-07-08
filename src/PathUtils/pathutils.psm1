@@ -4,7 +4,7 @@ finds the specified command on system PATH
 .Description 
 uses `where` command to find commands on PATH
 #>
-function Find-Command($wally, [switch][bool]$useShellExecute = $true) {
+function Find-Command([Parameter(Mandatory=$true)]$wally, [switch][bool]$useShellExecute = $true) {
     if ($useShellExecute) {
         return cmd /c "where $wally"
     } else {
@@ -276,7 +276,7 @@ path to remove-frompath
 .Parameter persistent 
 save modified path in machine scope
 #>
-function Remove-FromPath($path, [switch][bool] $persistent) {
+function Remove-FromPath([Parameter(Mandatory=$true)]$path, [switch][bool] $persistent) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -307,7 +307,7 @@ function Remove-FromPath($path, [switch][bool] $persistent) {
     should return the found path value
 
 #>
-function Test-EnvPath($path, [switch][bool]$show) {
+function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -338,7 +338,7 @@ function Test-EnvPath($path, [switch][bool]$show) {
     .parameter name 
     variable name
 #>
-function Update-EnvVar($name) {
+function Update-EnvVar([Parameter(Mandatory=$true)]$name) {
     $path = @()
     $m = get-envvar $name -machine
     $u = get-envvar $name -user
@@ -384,7 +384,7 @@ function Get-EscapedRegex([Parameter(ValueFromPipeline=$true,Position=0)]$patter
     .synopsis 
     tests if given path is relative 
 #>
-function Test-IsRelativePath($path) {
+function Test-IsRelativePath([Parameter(Mandatory=$true)]$path) {
     if ([System.IO.Path]::isPathRooted($path)) { return $false }
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $false }
     return $true
@@ -432,7 +432,7 @@ function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $fr
     .synopsis 
     returns drive symbol for path (i.e. `c`)
 #>
-function Get-DriveSymbol($path) {
+function Get-DriveSymbol([Parameter(Mandatory=$true)]$path) {
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
     return $null
 }
@@ -559,7 +559,7 @@ PROCESS {
     .synopsis 
     checks if given path is a Junction (File system directory link)
 #>
-function Test-Junction($path) {
+function Test-Junction([Parameter(Mandatory=$true)]$path) {
     $_ = get-item $path
     $mode = "$($_.Mode)$(if($_.Attributes -band [IO.FileAttributes]::ReparsePoint) {'J'})"
     return $mode -match "J"        
@@ -569,7 +569,7 @@ function Test-Junction($path) {
     .synopsis 
     return junction taget directory
 #>
-function Get-JunctionTarget($p_path)
+function Get-JunctionTarget([Parameter(Mandatory=$true)]$p_path)
 {
     fsutil reparsepoint query $p_path | where-object { $_ -imatch 'Print Name:' } | foreach-object { $_ -replace 'Print Name\:\s*','' }
 }
