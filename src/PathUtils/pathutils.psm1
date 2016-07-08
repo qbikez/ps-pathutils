@@ -278,7 +278,7 @@ save modified path in machine scope
 #>
 function Remove-FromPath { 
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)]$path, [switch][bool] $persistent) 
+    param([Parameter(Mandatory=$true, ValueFromPipeline=$true)]$path, [switch][bool] $persistent) 
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $defaultSlash = "\"
