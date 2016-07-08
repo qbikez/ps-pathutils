@@ -87,27 +87,25 @@ Describe "env variable manipulation" {
     $p3 = "c:\test\test3"
     
     It "Should add path" {
+        $env:test = ""
         add-toenvvar "test" $p1
         $val = @(get-envvar "test")
         $val[0] | Should Be $p1
         $val.length | Should Be 1
     }
     It "Should add at the end path" {
+        $env:test = ""
+        add-toenvvar "test" $p1
         add-toenvvar "test" $p2
         $val = @(get-envvar "test")
         $val[$val.length - 1] | Should Be $p2
         $val.length | Should Be 2
     }
 
-    It "Should update env var" {
-        $val = "123654"
-        [System.Environment]::SetEnvironmentVariable("test", $val, [System.EnvironmentVariableTarget]::Machine)
-        update-envvar "test"
-
-        $env:test | Should Be $val
-    }
-        
     It "Should add at the beginning with -first" {
+        $env:test = ""
+        add-toenvvar "test" $p1
+        add-toenvvar "test" $p2
         add-toenvvar "test" $p3 -first
         $val = @(get-envvar "test")
         $val[0] | Should Be $p3
@@ -136,6 +134,14 @@ Describe "env variable manipulation" {
         $val = @(get-envvar "test")
         $val.length | Should Be ($val0.length + 1)
         $val[$val.Length - 1] | Should Be $p4conv
+    }
+
+      It "Should update env var" {
+        $val = "123654"
+        [System.Environment]::SetEnvironmentVariable("test1", $val, [System.EnvironmentVariableTarget]::Machine)
+        update-envvar "test1"
+
+        $env:test1 | Should Be $val
     }
     
 }
