@@ -4,7 +4,9 @@ finds the specified command on system PATH
 .Description 
 uses `where` command to find commands on PATH
 #>
-function Find-Command([Parameter(Mandatory=$true)]$wally, [switch][bool]$useShellExecute = $true) {
+function Find-Command {
+    [CmdletBinding()]
+    param([Parameter(Mandatory=$true)]$wally, [switch][bool]$useShellExecute = $true) 
     $usePsFallback = $false
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         $useShellExecute = $true       
