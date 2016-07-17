@@ -227,3 +227,19 @@ Describe "env variable manipulation" {
     }
     
 }
+
+Describe "where is" {
+    It "Should return object with Source property" {
+        $w = where-is "notepad.exe"
+        $w | Should Not benullorempty
+        $w.Source | Should Not benullorempty
+    }
+    It "Should return null for missing command" {
+        $w = where-is "non-existing.exe" 
+        $w | Should BeNullOrEmpty
+    }
+    It "Should return null for missing command in shell mode" {
+        $w = where-is "non-existing.exe" -useShellExecute
+        $w | Should BeNullOrEmpty
+    }
+}
