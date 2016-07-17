@@ -5,13 +5,29 @@ finds the specified command on system PATH
 uses `where` command to find commands on PATH
 #>
 function Find-Command([Parameter(Mandatory=$true)]$wally, [switch][bool]$useShellExecute = $true) {
+    $usePsFallback = $false
+    if ($PSVersionTable.PSVersion.Major -lt 5) {
+        $useShellExecute = $true       
+        $usePsFallback = $true 
+    }
     if ($useShellExecute) {
-        return cmd /c "where $wally"
-    } else {
+        $p = cmd /c "where $wally"
+        if ($p -ne $null) { 
+            return new-object pscustomobject -property @{
+                CommandType = "Application"
+                Name = (split-path $p -leaf)
+                Source = $p
+                Version = $null
+            }
+        }
+    }
+    if (!$useShellExecute -or $usePsFallback)  
+    {
         # todo: use pure-powershell method
-        return Get-Command $wally
+        return Get-Command $wally -ErrorAction Ignore
     }
 
+    return $null
 }
 
 <#
@@ -665,7 +681,7 @@ function Update-ModuleLink {
     
 }
 
-new-alias Where-Is get-command
+new-alias Where-Is find-command
 new-alias Refresh-Env update-env
 new-alias RefreshEnv refresh-env
 new-alias Contains-Path test-envpath
