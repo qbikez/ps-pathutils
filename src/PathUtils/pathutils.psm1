@@ -371,12 +371,7 @@ function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
     .parameter name 
     variable name
 #>
-<<<<<<< HEAD
-function Update-EnvVar($name) {
-    
-=======
 function Update-EnvVar([Parameter(Mandatory=$true)]$name) {
->>>>>>> ebc2591f334c64d59718c39af485ce05078716a2
     $path = @()
     $m = get-envvar $name -machine
     $u = get-envvar $name -user
