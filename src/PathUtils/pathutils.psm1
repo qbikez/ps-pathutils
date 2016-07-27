@@ -4,14 +4,32 @@ finds the specified command on system PATH
 .Description 
 uses `where` command to find commands on PATH
 #>
-function Find-Command($wally, [switch][bool]$useShellExecute = $true) {
+function Find-Command {
+    [CmdletBinding()]
+    param([Parameter(Mandatory=$true)]$wally, [switch][bool]$useShellExecute = $true) 
+    $usePsFallback = $false
+    if ($PSVersionTable.PSVersion.Major -lt 5) {
+        $useShellExecute = $true       
+        $usePsFallback = $true 
+    }
     if ($useShellExecute) {
-        return cmd /c "where $wally"
-    } else {
+        $p = cmd /c "where $wally"
+        if ($p -ne $null) { 
+            return new-object pscustomobject -property @{
+                CommandType = "Application"
+                Name = (split-path $p -leaf)
+                Source = $p
+                Version = $null
+            }
+        }
+    }
+    if (!$useShellExecute -or $usePsFallback)  
+    {
         # todo: use pure-powershell method
-        return Get-Command $wally
+        return Get-Command $wally -ErrorAction Ignore
     }
 
+    return $null
 }
 
 <#
@@ -42,7 +60,6 @@ function Set-EnvVar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandat
         [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Machine);
     }
 }
-
 
 <#
 .Synopsis 
@@ -207,7 +224,6 @@ param(
 }
 
 
-
 <#
 .SYNOPSIS 
 Adds the specified path to PATH env variable
@@ -278,22 +294,34 @@ path to remove-frompath
 .Parameter persistent 
 save modified path in machine scope
 #>
-function Remove-FromPath(
-    [Parameter(ValueFromPipeline=$true)]$path, 
-    [Alias("p")][switch][bool] $persistent)
-     {
+function Remove-FromPath {
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true,ValueFromPipeline=$true)]$path, 
+    [Alias("p")][switch][bool] $persistent
+)
+
     $paths = @($path) 
     $p = $env:Path.Split(';')
-    $p = $p | % { $_.trimend("\") }
+    $defaultSlash = "\"
+    $altSlash = "/" 
+    $p = $p | % { $_.replace($altSlash, $defaultSlash).trimEnd($defaultSlash) }
+    $removed = @()
     $paths | % { 
-        $path = $_
+        $path = $_.replace($altSlash, $defaultSlash).trimEnd($defaultSlash)
         $found = $p | ? { $_ -ieq $path }
         if ($found -ne $null) {
             write-verbose "found $($found.count) matches"
-            $p = $p | ? { !($_ -ieq $path) }    
+            $p = @($p | ? { !($_ -ieq $path) })    
+            $removed += $found
         }
     }
 
+    if ($removed.length -eq 0) {
+        write-warning "path '$paths' not found in PATH"
+    }
+
+  
     $env:path = [string]::Join(";",$p)
 
     [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Process);
@@ -312,7 +340,7 @@ function Remove-FromPath(
     should return the found path value
 
 #>
-function Test-EnvPath($path, [switch][bool]$show) {
+function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -336,14 +364,19 @@ function Test-EnvPath($path, [switch][bool]$show) {
     return $r
 }
 
+
 <#
     .synopsis 
     Reloads specified env variable from Registry
     .parameter name 
     variable name
 #>
+<<<<<<< HEAD
 function Update-EnvVar($name) {
     
+=======
+function Update-EnvVar([Parameter(Mandatory=$true)]$name) {
+>>>>>>> ebc2591f334c64d59718c39af485ce05078716a2
     $path = @()
     $m = get-envvar $name -machine
     $u = get-envvar $name -user
@@ -371,6 +404,10 @@ param()
     update-EnvVar "PsModulePath"  
 }
 
+function Get-EscapedRegex($pattern) {
+    return [Regex]::Escape($pattern)
+}
+
 <#
     .synopsis 
     returns a string that is ecaped for REGEX use
@@ -385,7 +422,7 @@ function Get-EscapedRegex([Parameter(ValueFromPipeline=$true,Position=0)]$patter
     .synopsis 
     tests if given path is relative 
 #>
-function Test-IsRelativePath($path) {
+function Test-IsRelativePath([Parameter(Mandatory=$true)]$path) {
     if ([System.IO.Path]::isPathRooted($path)) { return $false }
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $false }
     return $true
@@ -433,7 +470,7 @@ function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $fr
     .synopsis 
     returns drive symbol for path (i.e. `c`)
 #>
-function Get-DriveSymbol($path) {
+function Get-DriveSymbol([Parameter(Mandatory=$true)]$path) {
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
     return $null
 }
@@ -568,7 +605,7 @@ function New-Junction($path, $target) {
     .synopsis 
     checks if given path is a Junction (File system directory link)
 #>
-function Test-Junction($path) {
+function Test-Junction([Parameter(Mandatory=$true)]$path) {
     $_ = get-item $path
     $mode = "$($_.Mode)$(if($_.Attributes -band [IO.FileAttributes]::ReparsePoint) {'J'})"
     return $mode -match "J"        
@@ -578,7 +615,7 @@ function Test-Junction($path) {
     .synopsis 
     return junction taget directory
 #>
-function Get-JunctionTarget($p_path)
+function Get-JunctionTarget([Parameter(Mandatory=$true)]$p_path)
 {
     fsutil reparsepoint query $p_path | where-object { $_ -imatch 'Print Name:' } | foreach-object { $_ -replace 'Print Name\:\s*','' }
 }
@@ -663,7 +700,7 @@ function Update-ModuleLink {
     
 }
 
-new-alias Where-Is get-command
+new-alias Where-Is find-command
 new-alias Refresh-Env update-env
 new-alias RefreshEnv refresh-env
 new-alias Contains-Path test-envpath

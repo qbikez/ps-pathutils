@@ -87,19 +87,25 @@ Describe "env variable manipulation" {
     $p3 = "c:\test\test3"
     
     It "Should add path" {
+        $env:test = ""
         add-toenvvar "test" $p1
         $val = @(get-envvar "test")
         $val[0] | Should Be $p1
         $val.length | Should Be 1
     }
     It "Should add at the end path" {
+        $env:test = ""
+        add-toenvvar "test" $p1
         add-toenvvar "test" $p2
         $val = @(get-envvar "test")
         $val[$val.length - 1] | Should Be $p2
         $val.length | Should Be 2
     }
-        
+
     It "Should add at the beginning with -first" {
+        $env:test = ""
+        add-toenvvar "test" $p1
+        add-toenvvar "test" $p2
         add-toenvvar "test" $p3 -first
         $val = @(get-envvar "test")
         $val[0] | Should Be $p3
@@ -132,5 +138,112 @@ Describe "env variable manipulation" {
 
     It "Should update environment" {
         Refresh-Env
+    }
+    
+    It "Should update env var" {
+        $val = "123654"
+        [System.Environment]::SetEnvironmentVariable("test1", $val, [System.EnvironmentVariableTarget]::Machine)
+        update-envvar "test1"
+
+        $env:test1 | Should Be $val
+    }
+
+      It "Should remove paths" {
+        $p1 = "c:\test\test1"
+        $p2 = "c:\test\test2"
+        $p3 = "c:\test\test3"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath  $p1
+            add-topath $p2
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 2
+
+            remove-frompath $p1
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
+
+     It "Should remove paths with different slashes" {
+        $p1 = "c:\test\test1"
+        $p2 = "c:/test/test1"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath $p1
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+            remove-frompath $p2
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 0
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
+
+     It "Should remove paths with trailing slashes" {
+        $p1 = "c:\test\test1\"
+        $p2 = "c:\test\test1"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath $p1
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+            remove-frompath $p2
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 0
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
+
+    It "Should remove paths with missing trailing slashes" {
+        $p1 = "c:\test\test1"
+        $p2 = "c:\test\test1\"
+        try {
+            $oldpath = $env:path
+            $env:path = ""
+            add-topath $p1
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 1
+
+            remove-frompath $p2
+
+            $val = @(get-pathenv -current)
+            $val.length | Should Be 0
+
+        } finally {
+            $env:path = $oldpath
+        }
+    }
+    
+}
+
+Describe "where is" {
+    It "Should return object with Source property" {
+        $w = where-is "notepad.exe"
+        $w | Should Not benullorempty
+        $w.Source | Should Not benullorempty
+    }
+    It "Should return null for missing command" {
+        $w = where-is "non-existing.exe" 
+        $w | Should BeNullOrEmpty
+    }
+    It "Should return null for missing command in shell mode" {
+        $w = where-is "non-existing.exe" -useShellExecute
+        $w | Should BeNullOrEmpty
     }
 }
