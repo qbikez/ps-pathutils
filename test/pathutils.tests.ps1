@@ -246,4 +246,14 @@ Describe "where is" {
         $w = where-is "non-existing.exe" -useShellExecute
         $w | Should BeNullOrEmpty
     }
+    It "Should return array for multiple matches" {
+        mkdir "testdrive:\bin1"
+        mkdir "testdrive:\bin2"
+        "" | set-content "testdrive:\bin1\test.exe"
+        "" | set-content "testdrive:\bin2\test.exe"
+        (Get-TestDriveItem "bin1").fullname | add-topath
+        (Get-TestDriveItem "bin2").fullname | add-topath
+        $w = @(where-is "test")
+        $w.length | Should Be 2
+    }
 }

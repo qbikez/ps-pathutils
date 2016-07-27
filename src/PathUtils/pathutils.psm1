@@ -15,11 +15,13 @@ function Find-Command {
     if ($useShellExecute) {
         $p = cmd /c "where $wally"
         if ($p -ne $null) { 
-            return new-object pscustomobject -property @{
-                CommandType = "Application"
-                Name = (split-path $p -leaf)
-                Source = $p
-                Version = $null
+            return @($p) | % { 
+                new-object pscustomobject -property @{
+                    CommandType = "Application"
+                    Name = (split-path $_ -leaf)
+                    Source = $_
+                    Version = $null
+                }
             }
         }
     }
