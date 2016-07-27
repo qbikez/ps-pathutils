@@ -278,7 +278,10 @@ path to remove-frompath
 .Parameter persistent 
 save modified path in machine scope
 #>
-function Remove-FromPath($path, [switch][bool] $persistent) {
+function Remove-FromPath(
+    [Parameter(ValueFromPipeline=$true)]$path, 
+    [Alias("p")][switch][bool] $persistent)
+     {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -551,6 +554,14 @@ PROCESS {
     $fso.getfile($path.fullname).ShortPath
     } 
 } 
+}
+
+<# 
+    .synopsis 
+    creates a Junction (File system directory link) at $path, targeting $target
+#>
+function New-Junction($path, $target) {
+    cmd /C mklink /J $path $target
 }
 
 <#
