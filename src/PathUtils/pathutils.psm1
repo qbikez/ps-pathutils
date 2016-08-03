@@ -665,8 +665,18 @@ function Install-ModuleLink {
 #>
 function Update-ModuleLink {
     [CmdletBinding(SupportsShouldProcess=$false)]
-    param([Parameter(mandatory=$true)]$module)
+    param([Parameter(mandatory=$false)]$module)
     $modulename = $module
+    if ($modulename -eq $null) {
+        $modules = Get-ChildItem "C:\Program Files\WindowsPowershell\Modules" | ? {
+             $_.PsIsContainer -and (Test-Junction $_.FullName) 
+        }
+
+        $modules | %{
+            Update-ModuleLink $_.name
+        }
+        return
+    }
     $path = "C:\Program Files\WindowsPowershell\Modules\$modulename"
     if (test-path $path) {
         pushd
@@ -704,5 +714,6 @@ new-alias Contains-Path test-envpath
 new-alias Escape-Regex get-escapedregex
 new-alias Test-IsPathRelative Test-IsRelativePath
 new-alias Get-PathRelative Get-RelativePath
+new-alias Test-IsJunction Test-Junction
 
 Export-moduleMember -Function * -Alias *
