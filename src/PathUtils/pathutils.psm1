@@ -706,10 +706,145 @@ function Update-ModuleLink {
     }
     
 }
+function Get-Listing
+(
+    [string] $Path = ".", 
+    $Excludes = @(), 
+    [Alias("Recurse")]
+    [switch] $Recursive,
+    
+    [string] $Filter = $null,
+    [string] $include = $null,
+    [switch][bool] $Files,
+    [switch][bool] $Dirs 
+) {
+    function _GetListing
+(
+    [string] $Path = ".", 
+    $Excludes = @(), 
+    [Alias("Recurse")]
+    [switch] $Recursive,
+    
+    [string] $Filter = $null,
+    [string] $include = $null,
+    [switch][bool] $Files = $false,
+    [switch][bool] $Dirs = $false,
+    $level = 0,
+    $total = @()
+)
+{
+try {
+	$result = @()
+	if (($Path -eq $null) -or ($Path.Trim() -eq "")) {
+		#return $result
+	} 
+   if (!$dirs.ispresent -and !$files.ispresent) {
+       # get dirs by default
+       $dirs = $true
+       $files = $true
+   }
 
+    if ($Recurse) { $Recursive = $Recurse }
+	
+    Write-Progress -Activity "getting subdirs. Items Found = $($total.length)" -Status "path=$Path"
+    $fullpath = (get-item $path).FullName
+    
+    if (($fullpath -eq $null) -or ($fullpath.Trim() -eq "")) {
+        write-warning "cannot find or resolve path '$path'"
+		#return $result
+	} 
+    $path = $fullpath
+    try {
+        $topDirs = Get-ChildItem $Path -ErrorAction Stop
+    } catch {
+        write-error "failed to get child items for path '$path': $_"
+        $topDirs = @()
+    }
+    $topDirs = $topDirs | where { 
+        $a = $_
+        $_.PSIsContainer -and ($_.FullName -ne $null) -and (($Excludes | where { 
+                                                               "$($a.FullName.Substring($Path.length))\" -match "$_"
+                                                            }) -eq $null)
+    } 
+    
+    if ($Dirs) {
+        $f = $topDirs | where { 
+            $_ -ne $null `
+            -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
+            -and ([string]::IsNullOrEmpty($include) -or $_.Name -match $include) `
+            }
+        if ($f.Length -gt 0) {
+            $result += $f
+            $total += $f
+            write-output $f
+        }
+    }
+    if ($Files) {
+        try {
+            if (!(test-path $Path)) {
+                write-warning "path '$Path' not found"
+            }
+            $ls = Get-ChildItem $path -Filter $Filter -Recurse:$false | ? { !$_.PSIsContainer }   
+            if ($ls.Count -gt 0) {      
+                $result += $ls
+                $total += $ls
+                write-output $ls
+            }
+        } catch {
+            write-error "failed to get child items for path '$path': $_"
+        }
+    }
+    
+    if ($Recursive) {
+        foreach($dir in $topDirs) {
+            if ([string]::IsNullOrEmpty($dir)) {
+                Write-Warning "empty dir!"
+            }
+            if ($dirs `
+                -and ([string]::IsNullOrEmpty($Filter) -or $dir.Name -like $Filter) `
+                -and ([string]::IsNullOrEmpty($include) -or $dir.Name -match $include)) {
+                #do not recurse into matching dirs
+                continue
+            }
+            else {
+                try {
+                    $f = _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total 
+                    
+                        if ($f.Length -gt 0) {
+                        $result += $f
+                        $total += $f
+                        write-output $f
+                    }
+                    
+                } catch {
+                    throw
+                }
+            }
+        }
+    }
+
+    #return $result | where { $_ -ne $null }
+    }
+    catch {
+        throw
+    }
+    finally {
+        if ($level -eq 0) { 
+            Write-Progress -Activity "getting subdirs. Items Found = $($total.length)" -Status "DONE" -PercentComplete 100 -Completed 
+        }
+    }
+}
+
+    _GetListing @PSBoundParameters
+}
+
+new-alias get-childitemsfiltered get-listing
 new-alias Where-Is find-command
 new-alias Refresh-Env update-env
-new-alias RefreshEnv refresh-env
+# refreshenv alias might be already declared by chocolatey
+if ((get-alias refreshenv -erroraction Ignore) -eq $null) {
+	new-alias RefreshEnv refresh-env
+}
 new-alias Contains-Path test-envpath
 new-alias Escape-Regex get-escapedregex
 new-alias Test-IsPathRelative Test-IsRelativePath
