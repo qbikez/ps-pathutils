@@ -1,11 +1,11 @@
 import-module pester
 
-import-module ..\src\PathUtils
+import-module $PSScriptRoot\..\src\PathUtils
 #import-module "$PSScriptRoot/../third-party/pester"  
 
 Describe "listing test" {
     Copy-Item "test/*" "testdrive:" -Recurse -Verbose 
-    In "testdrive:/" {
+    In "testdrive:/test" {
         It "should list recursive dirs" {
             $l = get-listing -Recursive -dirs
             $l.fullname | format-table | out-string | write-host
@@ -13,13 +13,12 @@ Describe "listing test" {
         }
         It "should list recursive files" {
             $l = get-listing -Recursive -files
-         #   $l | format-table | out-string | write-host
-            $l.length | Should Be 6
+            $l.length | Should Be 7
         }
         It "should list recursive all" {
             $l = get-listing -Recursive
-         #   $l | format-table | out-string | write-host
-            $l.length | Should Be 13
+            $l.fullname | format-table | out-string | write-host
+            $l.length | Should Be 14
         }
 
         It "should list top level dirs and files" {
