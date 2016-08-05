@@ -12,7 +12,7 @@
 RootModule = '.\pathutils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.12'
+ModuleVersion = '1.0.13'
 
 # ID used to uniquely identify this module
 GUID = 'f63db64d-2afe-4c84-a09a-4c4148ec9df3'

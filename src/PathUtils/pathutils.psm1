@@ -838,6 +838,28 @@ try {
     _GetListing @PSBoundParameters
 }
 
+
+function find-upwards($pattern, $path = "." ) {
+        $path = (get-item $path).FullName
+        $foundfile = $null
+        if (!(get-item $path).PsIsContainer) {
+            $dir = split-path -Parent $path
+        }
+        else {
+            $dir = $path
+        }
+        while(![string]::IsNullOrEmpty($dir)) {
+            if (($pattern | % { "$dir/$_" } | test-path) -eq $true) {
+                $reporoot = $dir
+                $foundfile = $pattern | % { "$dir/$_" } | ? { test-path $_ } | select -First 1
+                break;
+            }
+            $dir = split-path -Parent $dir
+        }
+        
+        return $foundfile
+}
+
 new-alias get-childitemsfiltered get-listing
 new-alias Where-Is find-command
 new-alias Refresh-Env update-env
