@@ -718,7 +718,12 @@ function Get-Listing
     [switch][bool] $Files,
     [switch][bool] $Dirs 
 ) {
-    function _GetListing
+
+    $r = _GetListing @PSBoundParameters
+    @($r) | write-output
+}
+
+function _GetListing
 (
     [string] $Path = ".", 
     $Excludes = @(), 
@@ -743,6 +748,7 @@ try {
        $dirs = $true
        $files = $true
    }
+   $Excludes = @($Excludes | % { $_ -replace "\\","/" })
 
     if ($Recurse) { $Recursive = $Recurse }
 	
@@ -762,9 +768,12 @@ try {
     }
     $topDirs = $topDirs | where { 
         $a = $_
-        $_.PSIsContainer -and ($_.FullName -ne $null) -and (($Excludes | where { 
-                                                               "$($a.FullName.Substring($Path.length))\" -match "$_"
-                                                            }) -eq $null)
+        $matchingExcludes = ($Excludes | where { 
+                "$($a.FullName.Replace("\","/").Substring($Path.length))/" -match "$_"
+              })
+        return $_.PSIsContainer `
+        -and ($_.FullName -ne $null) `
+        -and ($matchingExcludes -eq $null)
     } 
     
     if ($Dirs) {
@@ -773,10 +782,10 @@ try {
             -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
             -and ([string]::IsNullOrEmpty($include) -or $_.Name -match $include) `
             }
-        if ($f.Length -gt 0) {
+        if (@($f).Length -gt 0) {
             $result += $f
             $total += $f
-            write-output $f
+            @($f) | write-output 
         }
     }
     if ($Files) {
@@ -785,10 +794,10 @@ try {
                 write-warning "path '$Path' not found"
             }
             $ls = Get-ChildItem $path -Filter $Filter -Recurse:$false | ? { !$_.PSIsContainer }   
-            if ($ls.Count -gt 0) {      
+            if (@($ls).Count -gt 0) {      
                 $result += $ls
                 $total += $ls
-                write-output $ls
+                @($ls) | write-output
             }
         } catch {
             write-error "failed to get child items for path '$path': $_"
@@ -801,8 +810,8 @@ try {
                 Write-Warning "empty dir!"
             }
             if ($dirs `
-                -and ([string]::IsNullOrEmpty($Filter) -or $dir.Name -like $Filter) `
-                -and ([string]::IsNullOrEmpty($include) -or $dir.Name -match $include)) {
+                -and (![string]::IsNullOrEmpty($Filter) -and $dir.Name -like $Filter) `
+                -and (![string]::IsNullOrEmpty($include) -and $dir.Name -match $include)) {
                 #do not recurse into matching dirs
                 continue
             }
@@ -810,10 +819,10 @@ try {
                 try {
                     $f = _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total 
                     
-                        if ($f.Length -gt 0) {
+                    if (@($f).Length -gt 0) {
                         $result += $f
                         $total += $f
-                        write-output $f
+                        @($f) | write-output
                     }
                     
                 } catch {
@@ -833,9 +842,6 @@ try {
             Write-Progress -Activity "getting subdirs. Items Found = $($total.length)" -Status "DONE" -PercentComplete 100 -Completed 
         }
     }
-}
-
-    _GetListing @PSBoundParameters
 }
 
 

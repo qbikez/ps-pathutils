@@ -1,24 +1,53 @@
 import-module pester
+
+import-module ..\src\PathUtils
 #import-module "$PSScriptRoot/../third-party/pester"  
 
-function TouchFile($paths) {
-    $paths = @($paths)
-    foreach($path2 in $paths) {
-        if (!(test-path $path2)) {
-            if ([System.IO.Path]::GetFilenameWithoutExtension($path2) -eq $null `
-                -or $path2.EndsWith("/") -or $path2.EndsWith("\")
-            ) {
-                $null = new-item -type directory ($path2)
-            } else {
-                if (!(test-path (split-path -parent $path2))) {
-                    $null = new-item -type directory (split-path -parent $path2)
-                }
-                "" | Out-File $path2 
-            }
-        }        
+Describe "listing test" {
+    Copy-Item "test/*" "testdrive:" -Recurse -Verbose 
+    In "testdrive:/" {
+        It "should list recursive dirs" {
+            $l = get-listing -Recursive -dirs
+            $l.fullname | format-table | out-string | write-host
+            $l.length | Should Be 7
+        }
+        It "should list recursive files" {
+            $l = get-listing -Recursive -files
+         #   $l | format-table | out-string | write-host
+            $l.length | Should Be 6
+        }
+        It "should list recursive all" {
+            $l = get-listing -Recursive
+         #   $l | format-table | out-string | write-host
+            $l.length | Should Be 13
+        }
+
+        It "should list top level dirs and files" {
+            $l = get-listing 
+            $l.length | Should Be 6
+        }
+        It "should list top level files" {
+            $l = get-listing -files
+            $l.length | Should Be 2
+        }
+        It "should list top level dirs" {
+            $l = get-listing -dirs
+            $l.length | Should Be 4
+        }
+        It "should ommit top dirs by wildcard" {
+            $l = get-listing -dirs -excludes ".test"
+            $l.length | Should Be 2
+        }
+        It "should ommit excluded top dirs exact" {
+            $l = get-listing -dirs -excludes ".test/"
+            $l.length | Should Be 3
+            $l = get-listing -dirs -excludes ".test\"
+            $l.length | Should Be 3
+        }
+        
     }
 }
-
+<#
 Describe "module import test" {
     
     It "Should load properly" {
@@ -258,3 +287,23 @@ Describe "where is" {
         $w.length | Should Be 2
     }
 }
+#>
+
+function TouchFile($paths) {
+    $paths = @($paths)
+    foreach($path2 in $paths) {
+        if (!(test-path $path2)) {
+            if ([System.IO.Path]::GetFilenameWithoutExtension($path2) -eq $null `
+                -or $path2.EndsWith("/") -or $path2.EndsWith("\")
+            ) {
+                $null = new-item -type directory ($path2)
+            } else {
+                if (!(test-path (split-path -parent $path2))) {
+                    $null = new-item -type directory (split-path -parent $path2)
+                }
+                "" | Out-File $path2 
+            }
+        }        
+    }
+}
+
