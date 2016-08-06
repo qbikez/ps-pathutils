@@ -4,8 +4,20 @@ import-module $PSScriptRoot\..\src\PathUtils
 #import-module "$PSScriptRoot/../third-party/pester"  
 
 Describe "listing test" {
-    Copy-Item "test/*" "testdrive:" -Recurse -Verbose 
+    Copy-Item "$psscriptroot/test" "testdrive:" -Recurse -Verbose 
     In "testdrive:/test" {
+        It "should find multiple include files recursive" {
+            $l = get-listing -files -include "*.test.txt","*.sln.txt","*.test-data.txt" -recurse
+            $l.length | Should Be 3
+        }
+        It "should find multiple top level include files" {
+            $l = @(get-listing -files -excludes "^\..*/" -include "*.bin","*.global.txt")
+            $l.length | Should Be 2
+        }
+        It "should find top level include files" {
+            $l = @(get-listing -files -excludes "^\..*/" -include "*.bin")
+            $l.length | Should Be 1
+        }
         It "should ommit top dirs by regex" {
             $l = get-listing -dirs -excludes "^\..*/"
             $l.length | Should Be 2

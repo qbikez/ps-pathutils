@@ -714,7 +714,7 @@ function Get-Listing
     [switch] $Recursive,
     
     [string] $Filter = $null,
-    [string] $include = $null,
+    $include = @(),
     [switch][bool] $Files,
     [switch][bool] $Dirs 
 ) {
@@ -731,7 +731,7 @@ function _GetListing
     [switch] $Recursive,
     
     [string] $Filter = $null,
-    [string] $include = $null,
+    $include = @(),
     [switch][bool] $Files = $false,
     [switch][bool] $Dirs = $false,
     $level = 0,
@@ -794,7 +794,22 @@ try {
             if (!(test-path $Path)) {
                 write-warning "path '$Path' not found"
             }
-            $ls = Get-ChildItem $path -Filter $Filter -Recurse:$false | ? { !$_.PSIsContainer }   
+            $ls = Get-ChildItem $path -Filter:$Filter -Recurse:$false | ? { !$_.PSIsContainer }   
+            if ($include -ne $null -and $include.length -gt 0) {
+                $ls = $ls | ? {
+                    $it = $_
+                    $name = $it.name
+                    $matchingIncludes = $include | ? {
+                        ## handle simple globbing case (i.e. *.exe)
+                        if ($_.Startswith("*")) {
+                            $_ = [Regex]::Escape($_.Substring(1))
+                            $_ = ".*" + $_
+                        }
+                        $name -match $_
+                    }
+                    return $matchingIncludes -ne $null
+                }
+            }
             if (@($ls).Count -gt 0) {      
                 $result += $ls
                 $total += $ls
@@ -819,7 +834,7 @@ try {
             else {
                 try {
                     $f = _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total 
-                    
+                  
                     if (@($f).Length -gt 0) {
                         $result += $f
                         $total += $f
