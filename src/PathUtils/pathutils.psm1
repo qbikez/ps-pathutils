@@ -748,7 +748,7 @@ try {
        $dirs = $true
        $files = $true
    }
-   $Excludes = @($Excludes | % { $_ -replace "\\","/" })
+   #$Excludes = @($Excludes | % { $_ -replace "\\","/" })
 
     if ($Recurse) { $Recursive = $Recurse }
 	
@@ -768,11 +768,12 @@ try {
     }
     $topDirs = $topDirs | where { 
         $a = $_
+        $dirname = "$($a.FullName.Replace("\","/").Substring($Path.length).Trim("/"))/"
         $matchingExcludes = ($Excludes | where { 
-                "$($a.FullName.Replace("\","/").Substring($Path.length))/" -match "$_"
+                $dirname -match "$_"
               })
         return $_.PSIsContainer `
-        -and ($_.FullName -ne $null) `
+        -and ($_.Name -ne $null) `
         -and ($matchingExcludes -eq $null)
     } 
     

@@ -6,6 +6,10 @@ import-module $PSScriptRoot\..\src\PathUtils
 Describe "listing test" {
     Copy-Item "test/*" "testdrive:" -Recurse -Verbose 
     In "testdrive:/test" {
+        It "should ommit top dirs by regex" {
+            $l = get-listing -dirs -excludes "^\..*/"
+            $l.length | Should Be 2
+        }
         It "should list recursive dirs" {
             $l = get-listing -Recursive -dirs
             $l.fullname | format-table | out-string | write-host
@@ -40,9 +44,10 @@ Describe "listing test" {
         It "should ommit excluded top dirs exact" {
             $l = get-listing -dirs -excludes ".test/"
             $l.length | Should Be 3
-            $l = get-listing -dirs -excludes ".test\"
-            $l.length | Should Be 3
+            #don't use backslashes as path separator in regex - this won't work
+            #$l = get-listing -dirs -excludes ".test\\"
         }
+        
         
     }
 }
