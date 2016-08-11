@@ -3,6 +3,111 @@ import-module pester
 import-module $PSScriptRoot\..\src\PathUtils
 #import-module "$PSScriptRoot/../third-party/pester"  
 
+function TouchFile($paths) {
+    $paths = @($paths)
+    foreach($path2 in $paths) {
+        if (!(test-path $path2)) {
+            if ([System.IO.Path]::GetFilenameWithoutExtension($path2) -eq $null `
+                -or $path2.EndsWith("/") -or $path2.EndsWith("\")
+            ) {
+                $null = new-item -type directory ($path2)
+            } else {
+                if (!(test-path (split-path -parent $path2))) {
+                    $null = new-item -type directory (split-path -parent $path2)
+                }
+                "" | Out-File $path2 
+            }
+        }        
+    }
+}
+
+
+Describe "Refresh-env" {
+    It "Should update new environment from user scope" {
+        $env:TEST123 = $null
+        $oldpath = $env:PATH
+        try {
+            [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
+            $env:TEST123 | Should Be $null
+            Refresh-Env
+            $env:TEST123 | Should Be "456"
+        } finally {
+            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
+            $env:path = $oldpath 
+        }
+    }
+     It "Should update new environment from machine scope" {
+         $env:TEST123 = $null
+         $oldpath = $env:PATH
+        try {
+            [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::Machine)
+            $env:TEST123 | Should Be $null
+            Refresh-Env
+            $env:TEST123 | Should Be "456"
+        } finally {
+            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::Machine)
+            $env:Path = $oldpath
+        }
+    }
+     It "User should override machine" {
+         $env:TEST123 = $null
+         $oldpath = $env:PATH
+        try {
+            [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
+            [System.Environment]::SetEnvironmentVariable("TEST123", "999", [System.EnvironmentVariableTarget]::Machine)
+            $env:TEST123 | Should Be $null
+            Refresh-Env
+            $env:TEST123 | Should Be "456"
+        } finally {
+            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::Machine)
+            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
+            $env:Path = $oldpath
+        }
+    }
+    It "Should not override existing variable when asked" {
+        $env:TEST123 = $null
+        $oldpath = $env:PATH
+        try {
+            $env:TEST123 = "0"
+            [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
+            $env:TEST123 | Should Be 0
+            Refresh-Env -keepCurrent
+            $env:TEST123 | Should Be 0
+        } finally {
+            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
+            $env:Path = $oldpath
+        }
+    }
+    It "Should override existing variable by default" {
+        $env:TEST123 = $null
+        $oldpath = $env:PATH
+        try {
+            $env:TEST123 = "0"
+            [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
+            $env:TEST123 | Should Be "0"
+            Refresh-Env
+            $env:TEST123 | Should Be "456"
+        } finally {
+            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
+            $env:Path = $oldpath
+        }
+    }
+     It "Should concatenate paths" {
+        $oldpath = $env:PATH
+        try {
+            $machinepath = [System.Environment]::GetEnvironmentVariable("PATH",[System.EnvironmentVariableTarget]::Machine) 
+            $userpath = [System.Environment]::GetEnvironmentVariable("PATH",[System.EnvironmentVariableTarget]::User)
+            Refresh-Env -force
+            $env:PATH | Should Be "$($machinepath);$($userpath)"
+            $env:PATH | Should Be $oldpath
+        } finally {
+            $env:PATH = $oldpath
+        }
+    }
+}
+
+
+
 Describe "listing test" {
     Copy-Item "$psscriptroot/test" "testdrive:" -Recurse -Verbose 
     In "testdrive:/test" {
@@ -63,7 +168,7 @@ Describe "listing test" {
         
     }
 }
-<#
+
 Describe "module import test" {
     
     It "Should load properly" {
@@ -125,6 +230,7 @@ Describe "relative path feature" {
     }
 }
 
+
 Describe "env variable manipulation" {
     $env:test = ""
     $p1 = "c:\test\test1"
@@ -180,11 +286,7 @@ Describe "env variable manipulation" {
         $val.length | Should Be ($val0.length + 1)
         $val[$val.Length - 1] | Should Be $p4conv
     }
-
-    It "Should update environment" {
-        Refresh-Env
-    }
-    
+   
     It "Should update env var" {
         $val = "123654"
         [System.Environment]::SetEnvironmentVariable("test1", $val, [System.EnvironmentVariableTarget]::Machine)
@@ -277,6 +379,8 @@ Describe "env variable manipulation" {
     
 }
 
+
+
 Describe "where is" {
     It "Should return object with Source property" {
         $w = where-is "notepad.exe"
@@ -303,23 +407,5 @@ Describe "where is" {
         $w.length | Should Be 2
     }
 }
-#>
 
-function TouchFile($paths) {
-    $paths = @($paths)
-    foreach($path2 in $paths) {
-        if (!(test-path $path2)) {
-            if ([System.IO.Path]::GetFilenameWithoutExtension($path2) -eq $null `
-                -or $path2.EndsWith("/") -or $path2.EndsWith("\")
-            ) {
-                $null = new-item -type directory ($path2)
-            } else {
-                if (!(test-path (split-path -parent $path2))) {
-                    $null = new-item -type directory (split-path -parent $path2)
-                }
-                "" | Out-File $path2 
-            }
-        }        
-    }
-}
 

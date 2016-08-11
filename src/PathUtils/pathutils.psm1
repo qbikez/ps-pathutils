@@ -75,7 +75,7 @@ get variable from machine scope (persistent)
 .Parameter current 
 (default=true) get variable from current process scope
 #>
-function Get-EnvVar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current){
+function Get-EnvVar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [Alias("process")][switch][bool]$current){
     $val = @()
     if ($user) {
         $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::User);
@@ -373,21 +373,48 @@ function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
     .parameter name 
     variable name
 #>
-function Update-EnvVar([Parameter(Mandatory=$true)]$name) {
-    $path = @()
+function Update-EnvVar {
+    [CmdletBinding()]
+    param([Parameter(Mandatory=$true)]$name, [switch][bool] $pathmode, [switch][bool] $noOverride) 
+    
+    if ($name -eq "PATH" -or $name -eq "PATHEXT") { 
+        $pathmode = $true
+        $noOverride = $false
+    }
     $m = get-envvar $name -machine
     $u = get-envvar $name -user
+    $p = get-envvar $name -current
 
     write-verbose " # machine $name :"
     write-verbose "$m"
     write-verbose " # user    $name :"
     write-verbose "$u"
-       
-    $path += $m
-    $path += $u
+    write-verbose " # proc    $name :"
+    write-verbose "$p"
 
-    $val = [string]::Join(";",$path)
-    invoke-expression "`$env:$name = `$val"
+    if($p -ne $null -and $noOverride) {
+         write-verbose "not overriding process variable $name"
+         return 
+    }
+
+    if ($pathmode) {
+        $path = @()
+        $path += $m
+        $path += $u        
+        $val = $path
+    }
+    else {
+        if ($u -ne $null) { $val = $u }
+        else { $val = $m }
+    }
+
+    if ($val -is [Array]) {
+        $val = [string]::Join(";",$val)
+        $val = $val.Trim(";")
+    }
+
+    
+    set-item env:/$name -value $val
 }
 
 <#
@@ -396,9 +423,16 @@ function Update-EnvVar([Parameter(Mandatory=$true)]$name) {
 #>
 function Update-Env {
 [CmdletBinding()]
-param()
-    update-EnvVar "Path"
-    update-EnvVar "PsModulePath"  
+param([Alias("keepCurrent")][switch][bool] $noOverride)
+    $vars = [System.Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::Machine)
+    foreach($v in $vars.GetEnumerator()) {
+        update-envvar $v.name -noOverride:$noOverride
+    }
+
+    $vars = [System.Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::User)
+    foreach($v in $vars.GetEnumerator()) {
+        update-envvar $v.name -noOverride:$noOverride
+    }
 }
 
 function Get-EscapedRegex($pattern) {
