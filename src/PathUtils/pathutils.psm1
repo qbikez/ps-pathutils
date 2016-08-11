@@ -375,11 +375,11 @@ function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
 #>
 function Update-EnvVar {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)]$name, [switch][bool] $pathmode, [switch][bool] $noOverride) 
+    param([Parameter(Mandatory=$true)]$name, [switch][bool] $pathmode, [switch][bool] $force) 
     
     if ($name -eq "PATH" -or $name -eq "PATHEXT") { 
         $pathmode = $true
-        $noOverride = $false
+        $force = $true
     }
     $m = get-envvar $name -machine
     $u = get-envvar $name -user
@@ -392,7 +392,7 @@ function Update-EnvVar {
     write-verbose " # proc    $name :"
     write-verbose "$p"
 
-    if($p -ne $null -and $noOverride) {
+    if($p -ne $null -and !$force) {
          write-verbose "not overriding process variable $name"
          return 
     }
@@ -400,7 +400,8 @@ function Update-EnvVar {
     if ($pathmode) {
         $path = @()
         $path += $m
-        $path += $u        
+        $toadd = $u | ? { $_ -cnotin $m }        
+        $path += $toadd        
         $val = $path
     }
     else {
@@ -423,15 +424,15 @@ function Update-EnvVar {
 #>
 function Update-Env {
 [CmdletBinding()]
-param([Alias("keepCurrent")][switch][bool] $noOverride)
+param([Alias("all")][switch][bool] $force)
     $vars = [System.Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::Machine)
     foreach($v in $vars.GetEnumerator()) {
-        update-envvar $v.name -noOverride:$noOverride
+        update-envvar $v.name -force:$force
     }
 
     $vars = [System.Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::User)
     foreach($v in $vars.GetEnumerator()) {
-        update-envvar $v.name -noOverride:$noOverride
+        update-envvar $v.name -force:$force
     }
 }
 

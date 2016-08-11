@@ -64,28 +64,28 @@ Describe "Refresh-env" {
             $env:Path = $oldpath
         }
     }
-    It "Should not override existing variable when asked" {
+    It "Should not override existing variable by default" {
         $env:TEST123 = $null
         $oldpath = $env:PATH
         try {
             $env:TEST123 = "0"
             [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
             $env:TEST123 | Should Be 0
-            Refresh-Env -keepCurrent
+            Refresh-Env 
             $env:TEST123 | Should Be 0
         } finally {
             [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
             $env:Path = $oldpath
         }
     }
-    It "Should override existing variable by default" {
+    It "Should override existing variable when forced" {
         $env:TEST123 = $null
         $oldpath = $env:PATH
         try {
             $env:TEST123 = "0"
             [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
             $env:TEST123 | Should Be "0"
-            Refresh-Env
+            Refresh-Env -force
             $env:TEST123 | Should Be "456"
         } finally {
             [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
@@ -97,9 +97,15 @@ Describe "Refresh-env" {
         try {
             $machinepath = [System.Environment]::GetEnvironmentVariable("PATH",[System.EnvironmentVariableTarget]::Machine) 
             $userpath = [System.Environment]::GetEnvironmentVariable("PATH",[System.EnvironmentVariableTarget]::User)
-            Refresh-Env -force
-            $env:PATH | Should Be "$($machinepath);$($userpath)"
+            Refresh-Env -force            
+            $env:PATH.StartsWith($machinePath) | Should Be $true
+            $oldpath.StartsWith($machinePath) | Should Be $true
+            
+            $p2 = $env:PATH.Substring($machinepath.length + 1)
+            $oldp2 = $oldpath.Substring($machinepath.length + 1)
+            
             $env:PATH | Should Be $oldpath
+            #$env:PATH | Should Be "$($machinepath);$($userpath)".Trim(";")
         } finally {
             $env:PATH = $oldpath
         }
