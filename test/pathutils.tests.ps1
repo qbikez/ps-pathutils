@@ -104,7 +104,8 @@ Describe "Refresh-env" {
             $p2 = $env:PATH.Substring($machinepath.length + 1)
             $oldp2 = $oldpath.Substring($machinepath.length + 1)
             
-            $env:PATH | Should Be $oldpath
+            $oldPath.StartsWith($env:PATH) | Should Be $True
+            #$env:PATH | Should Be $oldpath
             #$env:PATH | Should Be "$($machinepath);$($userpath)".Trim(";")
         } finally {
             $env:PATH = $oldpath
