@@ -92,7 +92,7 @@ Describe "Refresh-env" {
             $env:Path = $oldpath
         }
     }
-     It "Should concatenate paths" {
+     It "Should concatenate machine and user paths" {
         $oldpath = $env:PATH
         try {
             $machinepath = [System.Environment]::GetEnvironmentVariable("PATH",[System.EnvironmentVariableTarget]::Machine) 
@@ -265,6 +265,18 @@ Describe "env variable manipulation" {
         add-toenvvar "test" $p1
         add-toenvvar "test" $p2
         add-toenvvar "test" $p3 -first
+        $val = @(get-envvar "test")
+        $val[0] | Should Be $p3
+        $val.length | Should Be 3
+    }
+
+     It "Should not duplicate with -first" {
+        $env:test = ""
+        add-toenvvar "test" $p1
+        add-toenvvar "test" $p2
+        add-toenvvar "test" $p3 -first
+        add-toenvvar "test" $p3 -first
+
         $val = @(get-envvar "test")
         $val[0] | Should Be $p3
         $val.length | Should Be 3

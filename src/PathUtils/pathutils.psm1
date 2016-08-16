@@ -259,7 +259,7 @@ process {
         $path = $_.trimend("\")
         write-verbose "adding $path to PATH"
         if ($first) {
-            if ($path.length -eq 0 -or $path[0] -ine $path) {
+            if ($p.length -eq 0 -or $p[0] -ine $path) {
                 $p = @($path) + $p
             }
         }
@@ -377,7 +377,7 @@ function Update-EnvVar {
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)]$name, [switch][bool] $pathmode, [switch][bool] $force) 
     
-    if ($name -eq "PATH" -or $name -eq "PATHEXT") { 
+    if ($name -ieq "PATH" -or $name -ieq "PATHEXT" -or $name -ieq "PSMODULEPATH") { 
         $pathmode = $true
         $force = $true
     }
