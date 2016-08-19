@@ -9,10 +9,10 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = '.\pathutils.psm1'
+RootModule = 'PathUtils.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.13'
+ModuleVersion = '1.0.15.6'
 
 # ID used to uniquely identify this module
 GUID = 'f63db64d-2afe-4c84-a09a-4c4148ec9df3'
@@ -30,7 +30,7 @@ Copyright = '(c) 2016 jakub.pawlowski. All rights reserved.'
 Description = 'utils to manipulate path variable'
 
 # Minimum version of the Windows PowerShell engine required by this module
-# PowerShellVersion = ''
+ #PowerShellVersion = '5.0.0'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
@@ -117,6 +117,19 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
