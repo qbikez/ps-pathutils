@@ -15,7 +15,7 @@ Install from [PowershellGallery](http://www.powershellgallery.com/packages/PathU
 Usage
 =====
 
-##### Add some path to PATH variable:
+### Add some path to PATH variable:
 
 ```console
 > "c:\Program Files\Java\jdk1.8.0_74\bin\" | Add-ToPath
@@ -26,13 +26,25 @@ Usage: java [-options] class [args...]
 > Note: By default, the variable is modified in the process scope. If you want to persist the change, add `-p` switch
 
 
-##### Refresh PATH variable (i.e. when modified by some other process)
+### Refresh PATH variable (i.e. when modified by some other process)
 
 ```console
 > Refresh-Env
 ```
 
-##### Use a PowerShell module directly from source control
+### Check if given command is available on PATH (like where/which)
+
+```console
+> Where-Is notepad
+
+Source                               Name        CommandType Version
+------                               ----        ----------- -------
+c:\Program Files\Git\usr\bin\notepad notepad     Application
+c:\Windows\System32\notepad.exe      notepad.exe Application
+C:\Windows\notepad.exe               notepad.exe Application
+```
+
+### Use a PowerShell module directly from source control
 Let's say you found a usefull PowerShell module, like this one and you want to hack a little on it. Instead of dropping it in your `PsModulesPath`, you could use `mklink` to add a link to it in some predefined modules location.
 
 ```console
