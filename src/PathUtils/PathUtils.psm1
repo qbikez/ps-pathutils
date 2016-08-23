@@ -4,7 +4,7 @@ finds the specified command on system PATH
 .Description 
 uses `where` command to find commands on PATH
 #>
-function Find-Command {
+function Find-CommandOnPath {
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)]$wally, [switch][bool]$useShellExecute = $true) 
     $usePsFallback = $false
@@ -924,7 +924,7 @@ function find-upwards($pattern, $path = "." ) {
 }
 
 new-alias get-childitemsfiltered get-listing
-new-alias Where-Is find-command
+new-alias Where-Is Find-CommandOnPath
 new-alias Refresh-Env update-env
 # refreshenv alias might be already declared by chocolatey
 if ((get-alias refreshenv -erroraction Ignore) -eq $null) {
