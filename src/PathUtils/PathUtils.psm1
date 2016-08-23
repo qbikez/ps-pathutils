@@ -751,7 +751,8 @@ function Get-Listing
     [string] $Filter = $null,
     $include = @(),
     [switch][bool] $Files,
-    [switch][bool] $Dirs 
+    [switch][bool] $Dirs,
+    $maxLevel = $null
 ) {
 
     $r = _GetListing @PSBoundParameters
@@ -770,10 +771,13 @@ function _GetListing
     [switch][bool] $Files = $false,
     [switch][bool] $Dirs = $false,
     $level = 0,
-    $total = @()
+    $total = @(),
+    $maxLevel = $null,
+    $OriginalPath = $null
 )
 {
 try {
+    if ($OriginalPath -eq $null) { $OriginalPath =  (get-item $path).FullName.Replace("\","/") }
 	$result = @()
 	if (($Path -eq $null) -or ($Path.Trim() -eq "")) {
 		#return $result
@@ -803,7 +807,7 @@ try {
     }
     $topDirs = $topDirs | where { 
         $a = $_
-        $dirname = "$($a.FullName.Replace("\","/").Substring($Path.length).Trim("/"))/"
+        $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"
         $matchingExcludes = ($Excludes | where { 
                 $dirname -match "$_"
               })
@@ -814,9 +818,11 @@ try {
     
     if ($Dirs) {
         $f = $topDirs | where { 
+            $a = $_
+            $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"      
             $_ -ne $null `
             -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
-            -and ([string]::IsNullOrEmpty($include) -or $_.Name -match $include) `
+            -and ([string]::IsNullOrEmpty($include) -or $dirname -match $include) `
             }
         if (@($f).Length -gt 0) {
             $result += $f
@@ -855,7 +861,7 @@ try {
         }
     }
     
-    if ($Recursive) {
+    if ($Recursive -and ($maxlevel -eq $null -or $maxlevel -gt $level)) {
         foreach($dir in $topDirs) {
             if ([string]::IsNullOrEmpty($dir)) {
                 Write-Warning "empty dir!"
@@ -868,7 +874,7 @@ try {
             }
             else {
                 try {
-                    $f = _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total 
+                    $f = _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total -maxLevel $maxlevel -OriginalPath $OriginalPath
                   
                     if (@($f).Length -gt 0) {
                         $result += $f
