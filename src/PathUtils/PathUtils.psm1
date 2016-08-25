@@ -379,7 +379,6 @@ function Update-EnvVar {
     
     if ($name -ieq "PATH" -or $name -ieq "PATHEXT" -or $name -ieq "PSMODULEPATH") { 
         $pathmode = $true
-        $force = $true
     }
     $m = get-envvar $name -machine
     $u = get-envvar $name -user
@@ -392,15 +391,22 @@ function Update-EnvVar {
     write-verbose " # proc    $name :"
     write-verbose "$p"
 
-    if($p -ne $null -and !$force) {
+    if($p -ne $null -and !$force -and !$pathmode) {
          write-verbose "not overriding process variable $name"
          return 
     }
 
     if ($pathmode) {
-        $path = @()
-        $path += $m
-        $toadd = $u | ? { $_ -cnotin $m }        
+        if ($force) {
+            # will ignore current process paths and read from registry
+            $path = @()
+        } else {
+            # will append paths from registry to current paths
+            $path = @($p)
+        }
+        $toadd = $m | ? { $_ -cnotin $path }        
+        $path += $toadd
+        $toadd = $u | ? { $_ -cnotin $path }        
         $path += $toadd        
         $val = $path
     }
