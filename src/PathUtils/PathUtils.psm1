@@ -936,7 +936,7 @@ new-alias Refresh-Env update-env
 if ((get-alias refreshenv -erroraction Ignore) -eq $null) {
 	new-alias RefreshEnv refresh-env
 }
-new-alias Contains-Path test-envpath
+#new-alias Contains-Path test-envpath
 new-alias Escape-Regex get-escapedregex
 new-alias Test-IsPathRelative Test-IsRelativePath
 new-alias Get-PathRelative Get-RelativePath
