@@ -517,7 +517,7 @@ param([Parameter(Mandatory=$true)][string] $Path,
         [Parameter(Mandatory=$true)][string] $ChildPath,
         [string] $separator = "\"
      ) 
-    return $path.TrimEnd($separator) + $ChildPath.TrimStart($separator)
+    return $path.TrimEnd($separator) + $separator + $ChildPath.TrimStart($separator)
 }
 
 <#  
