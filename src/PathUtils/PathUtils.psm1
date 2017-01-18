@@ -270,20 +270,19 @@ process {
         }
     }
     
-    $env:path = [string]::Join(";",$p)
-
     if ($user) {
-        write-warning "saving user PATH"
-          [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::User);
+          write-warning "saving user PATH and adding to current proc:  [string]::Join(";",$p)"
+          [System.Environment]::SetEnvironmentVariable("PATH",  [string]::Join(";",$p), [System.EnvironmentVariableTarget]::User);
           #add also to process PATH
           add-topath $path -persistent:$false -first:$first
     } elseif ($persistent) {            
           write-warning "saving global PATH"
-          [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Machine);
+          [System.Environment]::SetEnvironmentVariable("PATH", [string]::Join(";",$p), [System.EnvironmentVariableTarget]::Machine);
           #add also to process PATH
           add-topath $path -persistent:$false -first:$first
     } else {
-        [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Process);
+        $env:path = [string]::Join(";",$p);
+        [System.Environment]::SetEnvironmentVariable("PATH", $env:path, [System.EnvironmentVariableTarget]::Process);
     }
 }
 }
@@ -513,6 +512,14 @@ function Get-DriveSymbol([Parameter(Mandatory=$true)]$path) {
     return $null
 }
 
+function Join-PathSeparated {
+param([Parameter(Mandatory=$true)][string] $Path,
+        [Parameter(Mandatory=$true)][string] $ChildPath,
+        [string] $separator = "\"
+     ) 
+    return $path.TrimEnd($separator) + $ChildPath.TrimStart($separator)
+}
+
 <#  
     .synopsis 
     calculates relative path
@@ -527,8 +534,10 @@ function Get-RelativePath {
 [CmdletBinding()]
 param(
 [Parameter(Mandatory=$true)][Alias("dir")][string] $from,
-[Parameter(Mandatory=$true)][string][Alias("fullname")] $to
+[Parameter(Mandatory=$true)][string][Alias("fullname")] $to,
+$separator = "\"
 ) 
+    
     try {
         write-verbose "get relative paths of:"
         write-verbose "$from"
@@ -570,7 +579,6 @@ param(
     
     
 
-    $separator = "\"
     $issubdir = $FullName -match (escape-regex $dir)
     
     if ($issubdir) {
@@ -581,7 +589,7 @@ param(
         $lastslashidx = -10
         for($i = 0; $i -lt ([MAth]::Min($dir.Length, $FullName.Length)) -and $dir[$i] -ieq $FullName[$i]; $i++) {
             $commonPartLength++
-            if($dir[$i] -eq "\" -or $dir[$i] -eq "/") {
+            if($dir[$i] -eq $separator -or $dir[$i] -eq "/") {
                 $lastslashidx = $i
             }
         }
@@ -598,7 +606,7 @@ param(
         $dots = $val
         1..$level | % { $dots += "$separator.." }
 
-        $p = join-path $dots $filerel
+        $p = Join-PathSeparated $dots $filerel -separator $separator
     }
 
     return $p.Trim($separator)
