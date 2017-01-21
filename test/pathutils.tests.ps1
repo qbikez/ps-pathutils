@@ -234,6 +234,19 @@ Describe "relative path feature" {
         $relpath = Get-RelativePath $path1 $path2
         $relpath | Should be $expected
     }
+     It "Should return relative path <expected> for (existing=<create>) <path1> and <path2> with alt separator" -TestCases $cases {
+        param($path1, $path2, $expected, $create)
+        # make sure these paths exists, because only then will they will be resolved to full paths
+        if ($create -ne $false) {
+            TouchFile $path1,$path2
+        }
+        
+        $path1 = $path1.replace("\","/")
+        $path2 = $path2.replace("\","/")   
+        $relpath = Get-RelativePath $path1 $path2 -separator "/"
+        $relpath | Should be $expected.replace("\","/")
+
+    }
     It "Should return relative path <expected> for (existing=<create>) absolute paths of <path1> and <path2>" -TestCases $cases {
         param($path1, $path2, $expected)
         # make sure these paths exists, because only then will they will be resolved to full paths
@@ -241,6 +254,17 @@ Describe "relative path feature" {
 
         $relpath = Get-RelativePath (gi $path1).fullname (gi $path2).FullName
         $relpath | Should be $expected
+    }
+
+    It "Should return relative path <expected> for (existing=<create>) absolute paths of <path1> and <path2> with alt sep" -TestCases $cases {
+        param($path1, $path2, $expected)
+        # make sure these paths exists, because only then will they will be resolved to full paths
+        TouchFile $path1,$path2
+        $path1 = $path1.replace("\","/")
+        $path2 = $path2.replace("\","/")   
+       
+        $relpath = Get-RelativePath (gi $path1).fullname (gi $path2).FullName -separator "/"
+        $relpath | Should be $expected.replace("\","/")   
     }
     }
 }

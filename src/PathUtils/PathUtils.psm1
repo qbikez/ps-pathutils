@@ -537,7 +537,7 @@ param(
 [Parameter(Mandatory=$true)][string][Alias("fullname")] $to,
 $separator = "\"
 ) 
-    
+    $defaultsep = @("/","\")
     try {
         write-verbose "get relative paths of:"
         write-verbose "$from"
@@ -549,7 +549,7 @@ $separator = "\"
         $it = (gi $from)
         if ((test-ispathrelative $from) -or $bothabsolute) {
              Write-Verbose "using full path for comparison: $($it.fullname)"
-             $dir = $it.fullname 
+             $dir = $it.fullname
             }  
         if (!$it.psiscontainer) {
             #this is a file, we need a directory
@@ -559,24 +559,27 @@ $separator = "\"
     } else {
         write-verbose "path '$from' does not exist"
     }
+   $defaultsep | % { $dir = $dir.replace($_, $separator) }
     
+
     $FullName = $to 
     if ((test-path $to)) {
         if (((test-ispathrelative $to) -or $bothabsolute)) {
             $it = gi $to
             Write-Verbose "using full path for comparison: $($it.fullname)"
-            $FullName = $it.fullname 
+            $FullName = $it.fullname
         }
         if ((get-drivesymbol $from) -ne (get-drivesymbol $to)) {
             $it = gi $to
             #maybe the drive symbol is just an alias?
             Write-Verbose "different drive symbols '$(get-drivesymbol $from)' and '$(get-drivesymbol $to)'. using full path for comparison: $($it.fullname)"
-            $FullName = $it.fullname 
+            $FullName = $it.fullname
         }
     } else {
         write-verbose "path '$to' does not exist"
     }
     
+    $defaultsep | % { $FullName = $FullName.replace($_, $separator) }
     
 
     $issubdir = $FullName -match (escape-regex $dir)
@@ -589,7 +592,7 @@ $separator = "\"
         $lastslashidx = -10
         for($i = 0; $i -lt ([MAth]::Min($dir.Length, $FullName.Length)) -and $dir[$i] -ieq $FullName[$i]; $i++) {
             $commonPartLength++
-            if($dir[$i] -eq $separator -or $dir[$i] -eq "/") {
+            if($dir[$i] -eq $separator -or $dir[$i] -in $defaultsep) {
                 $lastslashidx = $i
             }
         }
@@ -601,7 +604,7 @@ $separator = "\"
         $commonDir = $FullName.Substring(0, $commonPartLength)
         $curdir = $dir.Substring($commonPartLength)
         $filerel = $fullname.Substring($commonPartLength)
-        $level = $curdir.Trim($separator).Split($separator).Length    
+        $level = $curdir.Trim($separator).Trim($defaultsep).Split(@($separator) + @($defaultsep)).Length    
         $val = ""
         $dots = $val
         1..$level | % { $dots += "$separator.." }
@@ -937,17 +940,17 @@ function find-upwards($pattern, $path = "." ) {
         return $foundfile
 }
 
-new-alias get-childitemsfiltered get-listing
-new-alias Where-Is Find-CommandOnPath
-new-alias Refresh-Env update-env
+new-alias get-childitemsfiltered get-listing -Force
+new-alias Where-Is Find-CommandOnPath -Force
+new-alias Refresh-Env update-env -Force
 # refreshenv alias might be already declared by chocolatey
 if ((get-alias refreshenv -erroraction Ignore) -eq $null) {
-	new-alias RefreshEnv refresh-env
+	new-alias RefreshEnv refresh-env 
 }
 #new-alias Contains-Path test-envpath
-new-alias Escape-Regex get-escapedregex
-new-alias Test-IsPathRelative Test-IsRelativePath
-new-alias Get-PathRelative Get-RelativePath
-new-alias Test-IsJunction Test-Junction
+new-alias Escape-Regex get-escapedregex -Force
+new-alias Test-IsPathRelative Test-IsRelativePath -Force
+new-alias Get-PathRelative Get-RelativePath -Force
+new-alias Test-IsJunction Test-Junction -Force
 
 Export-moduleMember -Function * -Alias *
