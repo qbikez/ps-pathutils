@@ -13,7 +13,13 @@ function Find-CommandOnPath {
         $usePsFallback = $true 
     }
     if ($useShellExecute) {
-        $p = cmd /c "where $wally"
+        $r = cmd /c "where $wally" 2>&1 
+        $err = $r | ?{$_ -is [System.Management.Automation.ErrorRecord]}
+        $p = $r | ?{$_ -isnot [System.Management.Automation.ErrorRecord]}
+        if($err){
+            #ignore errors from cmd
+            #Write-Error $err
+        }
         if ($p -ne $null) { 
             return @($p) | % { 
                 new-object pscustomobject -property @{
