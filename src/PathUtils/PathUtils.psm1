@@ -975,5 +975,6 @@ new-alias Test-IsPathRelative Test-IsRelativePath -Force
 new-alias Get-PathRelative Get-RelativePath -Force
 new-alias Test-IsJunction Test-Junction -Force
 new-alias Replace-FileExtension Set-FileExtension -Force
+new-alias Replace-FileExt Set-FileExtension -Force
 
 Export-moduleMember -Function * -Alias *

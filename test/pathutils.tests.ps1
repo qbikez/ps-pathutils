@@ -2,6 +2,9 @@ import-module pester
 
 import-module $PSScriptRoot\..\src\PathUtils
 #import-module "$PSScriptRoot/../third-party/pester"  
+import-module require -ErrorAction Stop
+
+req process
 
 function TouchFile($paths) {
     $paths = @($paths)
@@ -104,10 +107,8 @@ Describe "Refresh-env" {
     }
 
     Context "when user is admin" {
-        ipmo require
-        req process
         BeforeEach {
-            if (!(is-admin)) { Set-TestInconclusive "admin priviledge is required" }             
+            if (!(test-isadmin)) { Set-TestInconclusive "admin priviledge is required" }             
         }
         It "Should update new environment from machine scope" {                        
             $env:TEST123 = $null
@@ -364,10 +365,8 @@ Describe "env variable manipulation" {
     }
 
     Context "when user is admin" {
-        ipmo require
-        req process
         BeforeEach {
-            if (!(is-admin)) { Set-TestInconclusive "admin priviledge is required" }             
+            if (!(test-isadmin)) { Set-TestInconclusive "admin priviledge is required" }             
         }
         It "Should update env var" {
             $val = "123654"
