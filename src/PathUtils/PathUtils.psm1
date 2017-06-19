@@ -946,7 +946,7 @@ function find-upwards($pattern, $path = "." ) {
         return $foundfile
 }
 
-function Replace-FileExtension {
+function Set-FileExtension {
     param(
         [Parameter(Mandatory=$true)][string] $filename,
         [Parameter(Mandatory=$true)][string] $ext
@@ -974,5 +974,6 @@ new-alias Escape-Regex get-escapedregex -Force
 new-alias Test-IsPathRelative Test-IsRelativePath -Force
 new-alias Get-PathRelative Get-RelativePath -Force
 new-alias Test-IsJunction Test-Junction -Force
+new-alias Replace-FileExtension Set-FileExtension -Force
 
 Export-moduleMember -Function * -Alias *
