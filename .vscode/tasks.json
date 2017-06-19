@@ -2,7 +2,6 @@
     "version": "0.1.0",
     "command": "powershell",
     "isShellCommand": true,
-    //	"args": ["Invoke-Pester ${file}"],
     "showOutput": "always",
     "fileLocation": "absolute",
     "tasks": [
@@ -119,9 +118,11 @@
         {
             "taskName": "test",
             "args": [
-                //            "Invoke-Pester ${file}"
-                "Invoke-Pester test"
+                "Invoke-Pester ./test"
             ],
+            "options": {
+                "cwd": "${workspaceRoot}"
+            },
             "isTestCommand": true,
             "suppressTaskName": true,
             

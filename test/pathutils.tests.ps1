@@ -5,13 +5,14 @@ import-module $PSScriptRoot\..\src\PathUtils
 
 function TouchFile($paths) {
     $paths = @($paths)
-    foreach($path2 in $paths) {
+    foreach ($path2 in $paths) {
         if (!(test-path $path2)) {
             if ([System.IO.Path]::GetFilenameWithoutExtension($path2) -eq $null `
-                -or $path2.EndsWith("/") -or $path2.EndsWith("\")
+                    -or $path2.EndsWith("/") -or $path2.EndsWith("\")
             ) {
                 $null = new-item -type directory ($path2)
-            } else {
+            }
+            else {
                 if (!(test-path (split-path -parent $path2))) {
                     $null = new-item -type directory (split-path -parent $path2)
                 }
@@ -32,38 +33,12 @@ Describe "Refresh-env" {
             Refresh-Env
             $env:TEST123 | Should Be "456"
         } finally {
-            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
+            [System.Environment]::SetEnvironmentVariable("TEST123", $null, [System.EnvironmentVariableTarget]::User)
             $env:path = $oldpath 
         }
     }
-     It "Should update new environment from machine scope" {
-         $env:TEST123 = $null
-         $oldpath = $env:PATH
-        try {
-            [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::Machine)
-            $env:TEST123 | Should Be $null
-            Refresh-Env
-            $env:TEST123 | Should Be "456"
-        } finally {
-            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::Machine)
-            $env:Path = $oldpath
-        }
-    }
-     It "User should override machine" {
-         $env:TEST123 = $null
-         $oldpath = $env:PATH
-        try {
-            [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
-            [System.Environment]::SetEnvironmentVariable("TEST123", "999", [System.EnvironmentVariableTarget]::Machine)
-            $env:TEST123 | Should Be $null
-            Refresh-Env
-            $env:TEST123 | Should Be "456"
-        } finally {
-            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::Machine)
-            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
-            $env:Path = $oldpath
-        }
-    }
+
+    
     It "Should not override existing variable by default" {
         $env:TEST123 = $null
         $oldpath = $env:PATH
@@ -74,7 +49,7 @@ Describe "Refresh-env" {
             Refresh-Env 
             $env:TEST123 | Should Be 0
         } finally {
-            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
+            [System.Environment]::SetEnvironmentVariable("TEST123", $null, [System.EnvironmentVariableTarget]::User)
             $env:Path = $oldpath
         }
     }
@@ -88,20 +63,34 @@ Describe "Refresh-env" {
             Refresh-Env -force
             $env:TEST123 | Should Be "456"
         } finally {
-            [System.Environment]::SetEnvironmentVariable("TEST123",$null,[System.EnvironmentVariableTarget]::User)
+            [System.Environment]::SetEnvironmentVariable("TEST123", $null, [System.EnvironmentVariableTarget]::User)
             $env:Path = $oldpath
         }
     }
-     It "Should concatenate machine and user paths" {
+    It "Should concatenate machine and user paths" {
         $oldpath = $env:PATH
         try {
-            $machinepath = [System.Environment]::GetEnvironmentVariable("PATH",[System.EnvironmentVariableTarget]::Machine) 
-            $userpath = [System.Environment]::GetEnvironmentVariable("PATH",[System.EnvironmentVariableTarget]::User)
-            Refresh-Env -force            
+            $machinepath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine) 
+            $userpath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User)
+
+            if ([string]::IsNullOrEmpty($userpath)) { Set-TestInconclusive "user-level PATH variable is empty" }
+
+            update-envvar "PATH" -force:$true
+
             $env:PATH.StartsWith($machinePath) | Should Be $true
             
-            $p2 = $env:PATH.Substring($machinepath.length + 1)
-            $oldp2 = $oldpath.Substring($machinepath.length + 1)
+            #$p2 = $env:PATH.Substring($machinepath.length + 1)
+            #$oldp2 = $oldpath.Substring($machinepath.length + 1)
+
+            $machinepaths = $machinepath.split(";")
+            $userpaths = $userpath.split(";")
+
+            foreach($p in $machinepaths) {
+                $env:PATH | Should Match ($p | Escape-Regex)
+            }
+            foreach($p in $userpaths) {
+                $env:PATH | Should Match  ($p | Escape-Regex)
+            }
             
             # this is easy to break:
             #$oldpath.StartsWith($machinePath) | Should Be $true
@@ -113,6 +102,42 @@ Describe "Refresh-env" {
             $env:PATH = $oldpath
         }
     }
+
+    Context "when user is admin" {
+        ipmo require
+        req process
+        BeforeEach {
+            if (!(is-admin)) { Set-TestInconclusive "admin priviledge is required" }             
+        }
+        It "Should update new environment from machine scope" {                        
+            $env:TEST123 = $null
+            $oldpath = $env:PATH
+            try {
+                [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::Machine)
+                $env:TEST123 | Should Be $null
+                Refresh-Env
+                $env:TEST123 | Should Be "456"
+            } finally {
+                [System.Environment]::SetEnvironmentVariable("TEST123", $null, [System.EnvironmentVariableTarget]::Machine)
+                $env:Path = $oldpath
+            }
+        }
+        It "User should override machine" {
+            $env:TEST123 = $null
+            $oldpath = $env:PATH
+            try {
+                [System.Environment]::SetEnvironmentVariable("TEST123", "456", [System.EnvironmentVariableTarget]::User)
+                [System.Environment]::SetEnvironmentVariable("TEST123", "999", [System.EnvironmentVariableTarget]::Machine)
+                $env:TEST123 | Should Be $null
+                Refresh-Env
+                $env:TEST123 | Should Be "456"
+            } finally {
+                [System.Environment]::SetEnvironmentVariable("TEST123", $null, [System.EnvironmentVariableTarget]::Machine)
+                [System.Environment]::SetEnvironmentVariable("TEST123", $null, [System.EnvironmentVariableTarget]::User)
+                $env:Path = $oldpath
+            }
+        }
+    }
 }
 
 
@@ -121,11 +146,11 @@ Describe "listing test" {
     Copy-Item "$psscriptroot/test" "testdrive:" -Recurse -Verbose 
     In "testdrive:/test" {
         It "should find multiple include files recursive" {
-            $l = get-listing -files -include "*.test.txt","*.sln.txt","*.test-data.txt" -recurse
+            $l = get-listing -files -include "*.test.txt", "*.sln.txt", "*.test-data.txt" -recurse
             $l.length | Should Be 3
         }
         It "should find multiple top level include files" {
-            $l = @(get-listing -files -excludes "^\..*/" -include "*.bin","*.global.txt")
+            $l = @(get-listing -files -excludes "^\..*/" -include "*.bin", "*.global.txt")
             $l.length | Should Be 2
         }
         It "should find top level include files" {
@@ -195,77 +220,77 @@ Describe "module import test" {
 Describe "relative path feature" {
     $cases = @(
         @{ 
-            path1 = "test\sln\Sample.Solution\";
-            path2 = "test\sln\Sample.Solution\..\..\src\Console\Console1\..\..\Core\Core.Library1\Core.Library1.csproj"
+            path1    = "test\sln\Sample.Solution\";
+            path2    = "test\sln\Sample.Solution\..\..\src\Console\Console1\..\..\Core\Core.Library1\Core.Library1.csproj"
             expected = "..\..\src\Core\Core.Library1\Core.Library1.csproj" 
         }
         @{ 
-            path1 = "test\sln\Sample.Solution\Sample.Solution.sln";
-            path2 = "test\sln\Sample.Solution\..\..\src\Console\Console1\..\..\Core\Core.Library1\Core.Library1.csproj"
+            path1    = "test\sln\Sample.Solution\Sample.Solution.sln";
+            path2    = "test\sln\Sample.Solution\..\..\src\Console\Console1\..\..\Core\Core.Library1\Core.Library1.csproj"
             expected = "..\..\src\Core\Core.Library1\Core.Library1.csproj" 
         }
         @{
-            path1 = "testdrive:\test\sln\Sample.Solution\";
-            path2 = "testdrive:\test\packages\"
+            path1    = "testdrive:\test\sln\Sample.Solution\";
+            path2    = "testdrive:\test\packages\"
             expected = "..\..\packages" 
-            create = $true
+            create   = $true
         }
         @{
-            path1 = ".\test\sln\Sample.Solution\Sample.Solution.sln";
-            path2 = "testdrive:\test\packages\"
+            path1    = ".\test\sln\Sample.Solution\Sample.Solution.sln";
+            path2    = "testdrive:\test\packages\"
             expected = "..\..\packages" 
-            create = $false
+            create   = $false
         }
         @{
-            path1 = "testdrive:\test\sln\Sample.Solution\";
-            path2 = "testdrive:\test\packages\"
+            path1    = "testdrive:\test\sln\Sample.Solution\";
+            path2    = "testdrive:\test\packages\"
             expected = "..\..\packages" 
-            create = $false
+            create   = $false
         }
     )
     In "testdrive:/" {
-    It "Should return relative path <expected> for (existing=<create>) <path1> and <path2>" -TestCases $cases {
-        param($path1, $path2, $expected, $create)
-        # make sure these paths exists, because only then will they will be resolved to full paths
-        if ($create -ne $false) {
-            TouchFile $path1,$path2
-        }
+        It "Should return relative path <expected> for (existing=<create>) <path1> and <path2>" -TestCases $cases {
+            param($path1, $path2, $expected, $create)
+            # make sure these paths exists, because only then will they will be resolved to full paths
+            if ($create -ne $false) {
+                TouchFile $path1, $path2
+            }
            
-        $relpath = Get-RelativePath $path1 $path2
-        $relpath | Should be $expected
-    }
-     It "Should return relative path <expected> for (existing=<create>) <path1> and <path2> with alt separator" -TestCases $cases {
-        param($path1, $path2, $expected, $create)
-        # make sure these paths exists, because only then will they will be resolved to full paths
-        if ($create -ne $false) {
-            TouchFile $path1,$path2
+            $relpath = Get-RelativePath $path1 $path2
+            $relpath | Should be $expected
         }
+        It "Should return relative path <expected> for (existing=<create>) <path1> and <path2> with alt separator" -TestCases $cases {
+            param($path1, $path2, $expected, $create)
+            # make sure these paths exists, because only then will they will be resolved to full paths
+            if ($create -ne $false) {
+                TouchFile $path1, $path2
+            }
         
-        $path1 = $path1.replace("\","/")
-        $path2 = $path2.replace("\","/")   
-        $relpath = Get-RelativePath $path1 $path2 -separator "/"
-        $relpath | Should be $expected.replace("\","/")
+            $path1 = $path1.replace("\", "/")
+            $path2 = $path2.replace("\", "/")   
+            $relpath = Get-RelativePath $path1 $path2 -separator "/"
+            $relpath | Should be $expected.replace("\", "/")
 
-    }
-    It "Should return relative path <expected> for (existing=<create>) absolute paths of <path1> and <path2>" -TestCases $cases {
-        param($path1, $path2, $expected)
-        # make sure these paths exists, because only then will they will be resolved to full paths
-        TouchFile $path1,$path2
+        }
+        It "Should return relative path <expected> for (existing=<create>) absolute paths of <path1> and <path2>" -TestCases $cases {
+            param($path1, $path2, $expected)
+            # make sure these paths exists, because only then will they will be resolved to full paths
+            TouchFile $path1, $path2
 
-        $relpath = Get-RelativePath (gi $path1).fullname (gi $path2).FullName
-        $relpath | Should be $expected
-    }
+            $relpath = Get-RelativePath (gi $path1).fullname (gi $path2).FullName
+            $relpath | Should be $expected
+        }
 
-    It "Should return relative path <expected> for (existing=<create>) absolute paths of <path1> and <path2> with alt sep" -TestCases $cases {
-        param($path1, $path2, $expected)
-        # make sure these paths exists, because only then will they will be resolved to full paths
-        TouchFile $path1,$path2
-        $path1 = $path1.replace("\","/")
-        $path2 = $path2.replace("\","/")   
+        It "Should return relative path <expected> for (existing=<create>) absolute paths of <path1> and <path2> with alt sep" -TestCases $cases {
+            param($path1, $path2, $expected)
+            # make sure these paths exists, because only then will they will be resolved to full paths
+            TouchFile $path1, $path2
+            $path1 = $path1.replace("\", "/")
+            $path2 = $path2.replace("\", "/")   
        
-        $relpath = Get-RelativePath (gi $path1).fullname (gi $path2).FullName -separator "/"
-        $relpath | Should be $expected.replace("\","/")   
-    }
+            $relpath = Get-RelativePath (gi $path1).fullname (gi $path2).FullName -separator "/"
+            $relpath | Should be $expected.replace("\", "/")   
+        }
     }
 }
 
@@ -302,7 +327,7 @@ Describe "env variable manipulation" {
         $val.length | Should Be 3
     }
 
-     It "Should not duplicate with -first" {
+    It "Should not duplicate with -first" {
         $env:test = ""
         add-toenvvar "test" $p1
         add-toenvvar "test" $p2
@@ -337,16 +362,23 @@ Describe "env variable manipulation" {
         $val.length | Should Be ($val0.length + 1)
         $val[$val.Length - 1] | Should Be $p4conv
     }
-   
-    It "Should update env var" {
-        $val = "123654"
-        [System.Environment]::SetEnvironmentVariable("test1", $val, [System.EnvironmentVariableTarget]::Machine)
-        update-envvar "test1"
 
-        $env:test1 | Should Be $val
+    Context "when user is admin" {
+        ipmo require
+        req process
+        BeforeEach {
+            if (!(is-admin)) { Set-TestInconclusive "admin priviledge is required" }             
+        }
+        It "Should update env var" {
+            $val = "123654"
+            [System.Environment]::SetEnvironmentVariable("test1", $val, [System.EnvironmentVariableTarget]::Machine)
+            update-envvar "test1"
+
+            $env:test1 | Should Be $val
+        }
     }
 
-      It "Should remove paths" {
+    It "Should remove paths" {
         $p1 = "c:\test\test1"
         $p2 = "c:\test\test2"
         $p3 = "c:\test\test3"
@@ -368,7 +400,7 @@ Describe "env variable manipulation" {
         }
     }
 
-     It "Should remove paths with different slashes" {
+    It "Should remove paths with different slashes" {
         $p1 = "c:\test\test1"
         $p2 = "c:/test/test1"
         try {
@@ -388,7 +420,7 @@ Describe "env variable manipulation" {
         }
     }
 
-     It "Should remove paths with trailing slashes" {
+    It "Should remove paths with trailing slashes" {
         $p1 = "c:\test\test1\"
         $p2 = "c:\test\test1"
         try {
@@ -459,4 +491,22 @@ Describe "where is" {
     }
 }
 
-
+Describe "filename manipulation" {
+    Context "replace file extension" {
+        It "should work with starting ." {
+            $file = "test.csv"
+            $outfile = Replace-FileExtension $file ".bak.csv"
+            $outfile | Should Be "test.bak.csv"
+        }
+        It "should work without starting ." {
+            $file = "test.csv"
+            $outfile = Replace-FileExtension $file "-bak.csv"
+            $outfile | Should Be "test-bak.csv"
+        }
+        It "should preserve directory" {
+            $file = "data/test.csv"
+            $outfile = Replace-FileExtension $file ".bak.csv"
+            $outfile | Should Be "data\test.bak.csv"
+        }
+    }
+}

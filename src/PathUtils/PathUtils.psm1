@@ -946,6 +946,22 @@ function find-upwards($pattern, $path = "." ) {
         return $foundfile
 }
 
+function Replace-FileExtension {
+    param(
+        [Parameter(Mandatory=$true)][string] $filename,
+        [Parameter(Mandatory=$true)][string] $ext
+    ) 
+
+    $dir = [System.IO.Path]::GetDirectoryName($filename)
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($filename)
+    $old_ext = [System.IO.Path]::GetExtension($filename)
+
+    $newpath = $name + $ext
+    if (![string]::IsNullOrEmpty($dir)) { $newpath = [System.IO.Path]::Combine($dir, $newpath) }
+
+    return $newpath
+}
+
 new-alias get-childitemsfiltered get-listing -Force
 new-alias Where-Is Find-CommandOnPath -Force
 new-alias Refresh-Env update-env -Force
