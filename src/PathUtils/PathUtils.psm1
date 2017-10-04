@@ -54,17 +54,25 @@ set variable in machine scope (persistent)
 .Parameter current 
 (default=true) set variable in current's process scope
 #>
-function Set-EnvVar([Parameter(Mandatory=$true)][string]$name, [Parameter(Mandatory=$true)] $val, [switch][bool]$user, [switch][bool]$machine, [switch][bool]$current = $true){
+function Set-EnvVar {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)][string]$name, 
+        [Parameter(Mandatory=$true)] $val, 
+        [switch][bool]$user, 
+        [switch][bool]$machine, 
+        [switch][bool]$current = $true
+    )
     if ($current) {
-        write-host "scope=Process: setting env var '$name' to '$val'" 
+        write-verbose "scope=Process: setting env var '$name' to '$val'" 
         [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process);
     }
     if ($user) {
-        write-host "scope=User: setting env var '$name' to '$val'"
+        write-verbose "scope=User: setting env var '$name' to '$val'"
         [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::User);
     }
     if ($machine) {
-        write-host "scope=Machine setting env var '$name' to '$val'"
+        write-verbose "scope=Machine setting env var '$name' to '$val'"
         [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Machine);
     }
 }
@@ -956,6 +964,23 @@ function Set-FileExtension {
     if (![string]::IsNullOrEmpty($dir)) { $newpath = [System.IO.Path]::Combine($dir, $newpath) }
 
     return $newpath
+}
+
+function Convert-EnvUsername {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][string] $from,
+        [Parameter(Mandatory=$true)][string] $to
+    )
+
+    $vars = ls env:
+
+    foreach($v in $vars) {
+        if ($v.value.Contains($from)) {
+            $newval = ($v.value -replace $from,$to)
+            Set-EnvVar $v.name $newval
+        }
+    }
 }
 
 new-alias get-childitemsfiltered get-listing -Force
