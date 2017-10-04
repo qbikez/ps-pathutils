@@ -812,6 +812,8 @@ function _GetListing {
     $OriginalPath = $null
 )
 
+$dontRecureResultDirs = ![string]::IsNullOrEmpty($Filter)
+
 try {
     if ($OriginalPath -eq $null) { $OriginalPath =  (get-item $path).FullName.Replace("\","/") }
 	if (($Path -eq $null) -or ($Path.Trim() -eq "")) {
@@ -852,15 +854,25 @@ try {
     } 
     
     if ($Dirs) {
-        $topDirs | where { 
+        $topDirsNoResult = @()
+        $topDirs | % {                 
                 $a = $_
                 $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"      
-                $_ -ne $null `
-                -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
-                -and ([string]::IsNullOrEmpty($include) -or $dirname -match $include) `
+                if (
+                    $_ -ne $null `
+                    -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
+                    -and ([string]::IsNullOrEmpty($include) -or $dirname -match $include) `
+                ) {
+                    $_
+                } else {
+                    $topDirsNoResult += $_
+                }
             } | 
             % { $total += $_; $_ } |
             write-output
+        if ($dontRecureResultDirs) {
+            $topDirs = $topDirsNoResult
+        }
     }
     if ($Files) {
         try {

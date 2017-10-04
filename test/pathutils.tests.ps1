@@ -144,7 +144,7 @@ Describe "Refresh-env" {
 
 
 Describe "listing test" {
-    Copy-Item "$psscriptroot/test" "testdrive:" -Recurse -Verbose 
+    Copy-Item "$psscriptroot/test" "testdrive:/" -Recurse -Verbose 
     In "testdrive:/test" {
         It "should find multiple include files recursive" {
             $l = get-listing -files -include "*.test.txt", "*.sln.txt", "*.test-data.txt" -recurse
@@ -205,6 +205,13 @@ Describe "listing test" {
         }
         It "should include and exclude dirs by relative path" {
             $l = get-listing -dirs -recurse -include "src/Core/" -exclude "src/Core/Core\.Library2/"
+            $l.length | Should Be 2
+        }
+    }
+    Copy-Item "$psscriptroot/test2" "testdrive:/" -Recurse -Verbose 
+    In "testdrive:/test2" {
+        It "should not recurse into dirs that are returned by filter" {
+            $l = get-listing -dirs -recurse -Filter "log"
             $l.length | Should Be 2
         }
     }
