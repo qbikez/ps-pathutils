@@ -687,7 +687,7 @@ function Get-JunctionTarget([Parameter(Mandatory=$true)]$p_path)
     if `modulepath` contains multiple modules, specify a module name
 #>
 function Install-ModuleLink {
-    [CmdletBinding(SupportsShouldProcess=$true)]
+    [CmdletBinding(SupportsShouldProcess=$true,  ConfirmImpact="High")]
     param([Parameter(mandatory=$true)][string]$modulepath,
         [Parameter(mandatory=$false)]$modulename) 
     
@@ -698,6 +698,9 @@ function Install-ModuleLink {
     $target = (get-item $target).FullName
     if ($modulename -eq $null) {
         $modulename = split-path -leaf $target
+    }
+    if ([string]::IsNullOrWhiteSpace($modulename)) {
+        throw "Could not determine modulename for path '$modulepath'"
     }
     $path = "C:\Program Files\WindowsPowershell\Modules\$modulename"
     if (test-path $path) {
@@ -778,12 +781,14 @@ function Get-Listing
     $maxLevel = $null
 ) {
 
-    $r = _GetListing @PSBoundParameters
-    @($r) | write-output
+    _GetListing @PSBoundParameters | 
+        write-output
 }
 
-function _GetListing
-(
+function _GetListing {
+    [CmdletBinding()]
+    param
+    (
     [string] $Path = ".", 
     $Excludes = @(), 
     [Alias("Recurse")]
@@ -798,10 +803,9 @@ function _GetListing
     $maxLevel = $null,
     $OriginalPath = $null
 )
-{
+
 try {
     if ($OriginalPath -eq $null) { $OriginalPath =  (get-item $path).FullName.Replace("\","/") }
-	$result = @()
 	if (($Path -eq $null) -or ($Path.Trim() -eq "")) {
 		#return $result
 	} 
@@ -840,45 +844,42 @@ try {
     } 
     
     if ($Dirs) {
-        $f = $topDirs | where { 
-            $a = $_
-            $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"      
-            $_ -ne $null `
-            -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
-            -and ([string]::IsNullOrEmpty($include) -or $dirname -match $include) `
-            }
-        if (@($f).Length -gt 0) {
-            $result += $f
-            $total += $f
-            @($f) | write-output 
-        }
+        $topDirs | where { 
+                $a = $_
+                $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"      
+                $_ -ne $null `
+                -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
+                -and ([string]::IsNullOrEmpty($include) -or $dirname -match $include) `
+            } | 
+            % { $total += $_; $_ } |
+            write-output
     }
     if ($Files) {
         try {
             if (!(test-path $Path)) {
                 write-warning "path '$Path' not found"
             }
-            $ls = Get-ChildItem $path -Filter:$Filter -Recurse:$false | ? { !$_.PSIsContainer }   
-            if ($include -ne $null -and $include.length -gt 0) {
-                $ls = $ls | ? {
-                    $it = $_
-                    $name = $it.name
-                    $matchingIncludes = $include | ? {
-                        ## handle simple globbing case (i.e. *.exe)
-                        if ($_.Startswith("*")) {
-                            $_ = [Regex]::Escape($_.Substring(1))
-                            $_ = ".*" + $_
+            Get-ChildItem $path -Filter:$Filter -Recurse:$false | 
+                    ? { !$_.PSIsContainer } |
+                    ? {
+                        if ($include -ne $null -and $include.length -gt 0) {
+                            $it = $_
+                            $name = $it.name
+                            $matchingIncludes = $include | ? {
+                                ## handle simple globbing case (i.e. *.exe)
+                                if ($_.Startswith("*")) {
+                                    $_ = [Regex]::Escape($_.Substring(1))
+                                    $_ = ".*" + $_
+                                }
+                                $name -match $_
+                            }
+                            return $matchingIncludes -ne $null                            
+                        } else {
+                            $true
                         }
-                        $name -match $_
-                    }
-                    return $matchingIncludes -ne $null
-                }
-            }
-            if (@($ls).Count -gt 0) {      
-                $result += $ls
-                $total += $ls
-                @($ls) | write-output
-            }
+                    } | 
+                    % { $total += $_; $_ } | 
+                    write-output
         } catch {
             write-error "failed to get child items for path '$path': $_"
         }
@@ -897,14 +898,9 @@ try {
             }
             else {
                 try {
-                    $f = _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total -maxLevel $maxlevel -OriginalPath $OriginalPath
-                  
-                    if (@($f).Length -gt 0) {
-                        $result += $f
-                        $total += $f
-                        @($f) | write-output
-                    }
-                    
+                    _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total -maxLevel $maxlevel -OriginalPath $OriginalPath | 
+                        % { $total += $_; $_ } |
+                        write-output                                      
                 } catch {
                     throw
                 }
