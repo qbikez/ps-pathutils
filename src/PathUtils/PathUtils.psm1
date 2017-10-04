@@ -660,7 +660,9 @@ PROCESS {
     .synopsis 
     creates a Junction (File system directory link) at $path, targeting $target
 #>
-function New-Junction($path, $target) {
+function New-Junction([Parameter(Mandatory=$true)][string]$path, [Parameter(Mandatory=$true)][string]$target) {
+    $path = $path.Replace("/","\")
+    $target = $target.Replace("/","\")
     cmd /C mklink /J $path $target
 }
 
