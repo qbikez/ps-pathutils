@@ -256,9 +256,10 @@ save to user scope
 #>
 function Add-ToPath {
 [CmdletBinding()]
-param([Parameter(valuefrompipeline=$true)]$path, [Alias("p")][switch][bool] $persistent, [switch][bool]$first, [switch][bool] $user) 
+param([Parameter(valuefrompipeline=$true, Mandatory=$true)]$path, [Alias("p")][switch][bool] $persistent, [switch][bool]$first, [switch][bool] $user) 
 
 process { 
+    if ($path -eq $null) { throw [System.ArgumentNullException]"path" }
     if ($user) {
         $p = Get-Pathenv -user
     } elseif ($persistent) {
