@@ -6,38 +6,57 @@ uses `where` command to find commands on PATH
 #>
 function Find-CommandOnPath {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)]$wally, [switch][bool]$useShellExecute = $true) 
+    param([Parameter(Mandatory = $true)]$wally, [switch][bool]$useShellExecute = $true)
+    
+    $result = @()
     $usePsFallback = $false
+    $includeAliases = $true
+    
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         $useShellExecute = $true       
         $usePsFallback = $true 
     }
-    if ($useShellExecute) {
-        $r = cmd /c "where $wally" 2>&1 
-        $err = $r | ?{$_ -is [System.Management.Automation.ErrorRecord]}
-        $p = $r | ?{$_ -isnot [System.Management.Automation.ErrorRecord]}
-        if($err){
-            #ignore errors from cmd
-            #Write-Error $err
-        }
-        if ($p -ne $null) { 
-            return @($p) | % { 
-                new-object pscustomobject -property @{
-                    CommandType = "Application"
-                    Name = (split-path $_ -leaf)
-                    Source = $_
-                    Version = $null
+    
+    if ($includeAliases) {
+        $alias = Get-Alias $wally -ErrorAction Ignore
+        if ($alias) { 
+            $result += $alias | % { 
+                New-Object pscustomobject -Property @{
+                    CommandType = "Alias"
+                    Name        = $_.Name
+                    Source      = $_.Definition
+                    Version     = $null
                 }
             }
         }
     }
-    if (!$useShellExecute -or $usePsFallback)  
-    {
+
+    if ($useShellExecute) {
+        $r = cmd /c "where $wally" 2>&1 
+        $err = $r | ? { $_ -is [System.Management.Automation.ErrorRecord] }
+        $p = $r | ? { $_ -isnot [System.Management.Automation.ErrorRecord] }
+        if ($err) {
+            #ignore errors from cmd
+            #Write-Error $err
+        }
+        if ($p -ne $null) { 
+            $result += @($p) | % { 
+                New-Object pscustomobject -Property @{
+                    CommandType = "Application"
+                    Name        = (Split-Path $_ -Leaf)
+                    Source      = $_
+                    Version     = $null
+                }
+            }
+        }
+    }
+    
+    if (!$useShellExecute -or $usePsFallback) {       
         # todo: use pure-powershell method
-        return Get-Command $wally -ErrorAction Ignore
+        $result += Get-Command $wally -ErrorAction Ignore
     }
 
-    return $null
+    return $result
 }
 
 <#
@@ -57,23 +76,23 @@ set variable in machine scope (persistent)
 function Set-EnvVar {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)][string]$name, 
-        [Parameter(Mandatory=$true)] $val, 
+        [Parameter(Mandatory = $true)][string]$name, 
+        [Parameter(Mandatory = $true)] $val, 
         [switch][bool]$user, 
         [switch][bool]$machine, 
         [switch][bool]$current = $true
     )
     if ($current) {
-        write-verbose "scope=Process: setting env var '$name' to '$val'" 
-        [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process);
+        Write-Verbose "scope=Process: setting env var '$name' to '$val'" 
+        [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process)
     }
     if ($user) {
-        write-verbose "scope=User: setting env var '$name' to '$val'"
-        [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::User);
+        Write-Verbose "scope=User: setting env var '$name' to '$val'"
+        [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::User)
     }
     if ($machine) {
-        write-verbose "scope=Machine setting env var '$name' to '$val'"
-        [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Machine);
+        Write-Verbose "scope=Machine setting env var '$name' to '$val'"
+        [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Machine)
     }
 }
 
@@ -89,23 +108,24 @@ get variable from machine scope (persistent)
 .Parameter current 
 (default=true) get variable from current process scope
 #>
-function Get-EnvVar([Parameter(Mandatory=$true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [Alias("process")][switch][bool]$current){
+function Get-EnvVar([Parameter(Mandatory = $true)][string]$name, [switch][bool]$user, [switch][bool]$machine, [Alias("process")][switch][bool]$current) {
     $val = @()
     if ($user) {
-        $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::User);
+        $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::User)
     }
     if ($machine) {
-        $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::Machine);
+        $val += [System.Environment]::GetEnvironmentVariable($name, [System.EnvironmentVariableTarget]::Machine)
     }
     if (!$user.IsPresent -and !$machine.IsPresent) {
         $current = $true
     }
     if ($current) {
-        $val = invoke-expression "`$env:$name"
+        $val = Invoke-Expression "`$env:$name"
     }
     if ($val -ne $null) {
         $p = $val.Split(';')
-    } else {
+    }
+    else {
         $p = @()
     }
     
@@ -129,48 +149,48 @@ preppend the value instead of appending
 #>
 function Add-ToEnvVar {
     [CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true)][string]$name, 
-    [Parameter(valuefrompipeline=$true)]$path, 
-    [switch][bool] $persistent, 
-    [switch][bool] $first
-)
+    param(
+        [Parameter(Mandatory = $true)][string]$name, 
+        [Parameter(valuefrompipeline = $true)]$path, 
+        [switch][bool] $persistent, 
+        [switch][bool] $first
+    )
   
-process {
+    process {
       
-    $p = get-envvar $name
-    $p = @($p | % { $_.trimend("\") })
+        $p = Get-EnvVar $name
+        $p = @($p | % { $_.trimend("\") })
 
-    $paths = @($path) 
-    foreach ($_ in $paths) { 
-        $path = $_.replace("/","\").trimend("\")
-        if ($p -contains $path) {
-            write-verbose "Env var '$name' already contains path '$path'"
-            continue
-        }
-        write-verbose "adding $path to $name"
-        if ($first) {
-            if ($path.length -eq 0 -or $path[0] -ine $path) {
-                $p = @($path) + $p
+        $paths = @($path) 
+        foreach ($_ in $paths) { 
+            $path = $_.replace("/", "\").trimend("\")
+            if ($p -contains $path) {
+                Write-Verbose "Env var '$name' already contains path '$path'"
+                continue
+            }
+            Write-Verbose "adding $path to $name"
+            if ($first) {
+                if ($path.length -eq 0 -or $path[0] -ine $path) {
+                    $p = @($path) + $p
+                }
+            }
+            else {
+                if ($path -inotin $p) {
+                    $p += $path
+                }
             }
         }
-        else {
-            if ($path -inotin $p) {
-                $p += $path
-            }
+    
+        $val = [string]::Join(";", $p)
+    
+        Invoke-Expression "`$env:$name = `$val"
+
+        [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process)
+        if ($persistent) {
+            Write-Warning "saving global $name"
+            [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Machine)
         }
     }
-    
-    $val = [string]::Join(";",$p)
-    
-    Invoke-Expression "`$env:$name = `$val"
-
-    [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Process);
-    if ($persistent) {
-          write-warning "saving global $name"
-          [System.Environment]::SetEnvironmentVariable($name, $val, [System.EnvironmentVariableTarget]::Machine);
-    }
-}
 }
 
 
@@ -187,39 +207,39 @@ Get the value from process scope
 Return values for each scope
 #>
 function Get-PathEnv {
-[CmdLetBinding(DefaultParameterSetName="scoped")]
-param(
-    [Parameter(ParameterSetName="scoped")]
-    [switch][bool]$user,
-    [Parameter(ParameterSetName="scoped")] 
-    [switch][bool]$machine, 
-    [Alias("process")]
-    [Parameter(ParameterSetName="scoped")]
-    [switch][bool]$current, 
-    [Parameter(ParameterSetName="all")][switch][bool]$all
-)
+    [CmdLetBinding(DefaultParameterSetName = "scoped")]
+    param(
+        [Parameter(ParameterSetName = "scoped")]
+        [switch][bool]$user,
+        [Parameter(ParameterSetName = "scoped")] 
+        [switch][bool]$machine, 
+        [Alias("process")]
+        [Parameter(ParameterSetName = "scoped")]
+        [switch][bool]$current, 
+        [Parameter(ParameterSetName = "all")][switch][bool]$all
+    )
  
     $scopespecified = $user.IsPresent -or $machine.IsPresent -or $current.IsPresent
     $path = @()
-    $userpath = get-envvar "PATH" -user 
+    $userpath = Get-EnvVar "PATH" -user 
     if ($user) {
         $path += $userpath
     }
-    $machinepath = get-envvar "PATH" -machine
+    $machinepath = Get-EnvVar "PATH" -machine
     if ($machine -or !$scopespecified) {
         $path += $machinepath
     }
     if (!$user.IsPresent -and !$machine.IsPresent) {
         $current = $true
     }
-    $currentPath = get-envvar "PATH" -current
+    $currentPath = Get-EnvVar "PATH" -current
     if ($current) {
         $path = $currentPath
     }
     
     if ($all) {
         $h = @{
-            user = $userpath
+            user    = $userpath
             machine = $machinepath
             process = $currentPath
         }
@@ -233,7 +253,7 @@ param(
             "`r`n PROCESS",
             " -----------",
             $h.process
-            )
+        )
     }
     
     return $path
@@ -255,51 +275,55 @@ preppend the value instead of appending
 save to user scope
 #>
 function Add-ToPath {
-[CmdletBinding()]
-param([Parameter(valuefrompipeline=$true, Mandatory=$true)]$path, [Alias("p")][switch][bool] $persistent, [switch][bool]$first, [switch][bool] $user) 
+    [CmdletBinding()]
+    param([Parameter(valuefrompipeline = $true, Mandatory = $true)]$path, [Alias("p")][switch][bool] $persistent, [switch][bool]$first, [switch][bool] $user) 
 
-process { 
-    if ($path -eq $null) { throw [System.ArgumentNullException]"path" }
-    if ($user) {
-        $p = Get-Pathenv -user
-    } elseif ($persistent) {
-        $p = Get-Pathenv -machine
-    } else {
-        $p = Get-Pathenv -process
-    }
-    $p = $p | % { $_.trimend("\") }
-    $p = @($p)
-    $paths = @($path) 
-    $paths | % { 
-        $path = $_.trimend("\")
-        write-verbose "adding $path to PATH"
-        if ($first) {
-            if ($p.length -eq 0 -or $p[0] -ine $path) {
-                $p = @($path) + $p
-            }
+    process { 
+        if ($path -eq $null) { throw [System.ArgumentNullException]"path" }
+        if ($user) {
+            $p = Get-PathEnv -user
+        }
+        elseif ($persistent) {
+            $p = Get-PathEnv -machine
         }
         else {
-            if ($path -inotin $p) {
-                $p += $path
+            $p = Get-PathEnv -process
+        }
+        $p = $p | % { $_.trimend("\") }
+        $p = @($p)
+        $paths = @($path) 
+        $paths | % { 
+            $path = $_.trimend("\")
+            Write-Verbose "adding $path to PATH"
+            if ($first) {
+                if ($p.length -eq 0 -or $p[0] -ine $path) {
+                    $p = @($path) + $p
+                }
+            }
+            else {
+                if ($path -inotin $p) {
+                    $p += $path
+                }
             }
         }
-    }
     
-    if ($user) {
-          write-warning "saving user PATH and adding to current proc:  [string]::Join(";",$p)"
-          [System.Environment]::SetEnvironmentVariable("PATH",  [string]::Join(";",$p), [System.EnvironmentVariableTarget]::User);
-          #add also to process PATH
-          add-topath $path -persistent:$false -first:$first
-    } elseif ($persistent) {            
-          write-warning "saving global PATH"
-          [System.Environment]::SetEnvironmentVariable("PATH", [string]::Join(";",$p), [System.EnvironmentVariableTarget]::Machine);
-          #add also to process PATH
-          add-topath $path -persistent:$false -first:$first
-    } else {
-        $env:path = [string]::Join(";",$p);
-        [System.Environment]::SetEnvironmentVariable("PATH", $env:path, [System.EnvironmentVariableTarget]::Process);
+        if ($user) {
+            Write-Warning "saving user PATH and adding to current proc:  [string]::Join("; ",$p)"
+            [System.Environment]::SetEnvironmentVariable("PATH", [string]::Join(";", $p), [System.EnvironmentVariableTarget]::User)
+            #add also to process PATH
+            Add-ToPath $path -persistent:$false -first:$first
+        }
+        elseif ($persistent) {            
+            Write-Warning "saving global PATH"
+            [System.Environment]::SetEnvironmentVariable("PATH", [string]::Join(";", $p), [System.EnvironmentVariableTarget]::Machine)
+            #add also to process PATH
+            Add-ToPath $path -persistent:$false -first:$first
+        }
+        else {
+            $env:path = [string]::Join(";", $p)
+            [System.Environment]::SetEnvironmentVariable("PATH", $env:path, [System.EnvironmentVariableTarget]::Process)
+        }
     }
-}
 }
 
 <#
@@ -311,11 +335,11 @@ path to remove-frompath
 save modified path in machine scope
 #>
 function Remove-FromPath {
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true,ValueFromPipeline=$true)]$path, 
-    [Alias("p")][switch][bool] $persistent
-)
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]$path, 
+        [Alias("p")][switch][bool] $persistent
+    )
 
     $paths = @($path) 
     $p = $env:Path.Split(';')
@@ -327,23 +351,23 @@ param(
         $path = $_.replace($altSlash, $defaultSlash).trimEnd($defaultSlash)
         $found = $p | ? { $_ -ieq $path }
         if ($found -ne $null) {
-            write-verbose "found $($found.count) matches"
+            Write-Verbose "found $($found.count) matches"
             $p = @($p | ? { !($_ -ieq $path) })    
             $removed += $found
         }
     }
 
     if ($removed.length -eq 0) {
-        write-warning "path '$paths' not found in PATH"
+        Write-Warning "path '$paths' not found in PATH"
     }
 
   
-    $env:path = [string]::Join(";",$p)
+    $env:path = [string]::Join(";", $p)
 
-    [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Process);
+    [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Process)
     if ($persistent) {
-        write-warning "saving global PATH"
-        [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Machine);
+        Write-Warning "saving global PATH"
+        [System.Environment]::SetEnvironmentVariable("PATH", $env:Path, [System.EnvironmentVariableTarget]::Machine)
     }
 }
 
@@ -356,7 +380,7 @@ param(
     should return the found path value
 
 #>
-function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
+function Test-EnvPath([Parameter(Mandatory = $true)]$path, [switch][bool]$show) {
     $paths = @($path) 
     $p = $env:Path.Split(';')
     $p = $p | % { $_.trimend("\") }
@@ -364,13 +388,13 @@ function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
     $path = $null
     $paths | % { 
         $path = $_       
-        $found = $p | ? { $_ -imatch (escape-regex "$path") }
+        $found = $p | ? { $_ -imatch (Escape-Regex "$path") }
         if (@($found).Count -le 0) { 
-            write-verbose "$path not found in PATH"
+            Write-Verbose "$path not found in PATH"
             $r = $false 
         }
         else {
-            write-verbose "$path found in PATH"
+            Write-Verbose "$path found in PATH"
         }
     }
 
@@ -389,32 +413,33 @@ function Test-EnvPath([Parameter(Mandatory=$true)]$path, [switch][bool]$show) {
 #>
 function Update-EnvVar {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)]$name, [switch][bool] $pathmode, [switch][bool] $force) 
+    param([Parameter(Mandatory = $true)]$name, [switch][bool] $pathmode, [switch][bool] $force) 
     
     if ($name -ieq "PATH" -or $name -ieq "PATHEXT" -or $name -ieq "PSMODULEPATH") { 
         $pathmode = $true
     }
-    $m = get-envvar $name -machine
-    $u = get-envvar $name -user
-    $p = get-envvar $name -current
+    $m = Get-EnvVar $name -machine
+    $u = Get-EnvVar $name -user
+    $p = Get-EnvVar $name -current
 
-    write-verbose " # machine $name :"
-    write-verbose "$m"
-    write-verbose " # user    $name :"
-    write-verbose "$u"
-    write-verbose " # proc    $name :"
-    write-verbose "$p"
+    Write-Verbose " # machine $name :"
+    Write-Verbose "$m"
+    Write-Verbose " # user    $name :"
+    Write-Verbose "$u"
+    Write-Verbose " # proc    $name :"
+    Write-Verbose "$p"
 
-    if($p -ne $null -and !$force -and !$pathmode) {
-         write-verbose "not overriding process variable $name"
-         return 
+    if ($p -ne $null -and !$force -and !$pathmode) {
+        Write-Verbose "not overriding process variable $name"
+        return 
     }
 
     if ($pathmode) {
         if ($force) {
             # will ignore current process paths and read from registry
             $path = @()
-        } else {
+        }
+        else {
             # will append paths from registry to current paths
             $path = @($p)
         }
@@ -430,12 +455,12 @@ function Update-EnvVar {
     }
 
     if ($val -is [Array]) {
-        $val = [string]::Join(";",$val)
+        $val = [string]::Join(";", $val)
         $val = $val.Trim(";")
     }
 
     
-    set-item env:/$name -value $val
+    Set-Item env:/$name -Value $val
 }
 
 <#
@@ -443,16 +468,16 @@ function Update-EnvVar {
     reloads PATH and PsModulePath variables fro registry
 #>
 function Update-Env {
-[CmdletBinding()]
-param([Alias("all")][switch][bool] $force)
+    [CmdletBinding()]
+    param([Alias("all")][switch][bool] $force)
     $vars = [System.Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::Machine)
-    foreach($v in $vars.GetEnumerator()) {
-        update-envvar $v.name -force:$force
+    foreach ($v in $vars.GetEnumerator()) {
+        Update-EnvVar $v.name -force:$force
     }
 
     $vars = [System.Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::User)
-    foreach($v in $vars.GetEnumerator()) {
-        update-envvar $v.name -force:$force
+    foreach ($v in $vars.GetEnumerator()) {
+        Update-EnvVar $v.name -force:$force
     }
 }
 
@@ -464,7 +489,7 @@ function Get-EscapedRegex($pattern) {
     .synopsis 
     returns a string that is ecaped for REGEX use
 #>
-function Get-EscapedRegex([Parameter(ValueFromPipeline=$true,Position=0)]$pattern) {
+function Get-EscapedRegex([Parameter(ValueFromPipeline = $true, Position = 0)]$pattern) {
     process {
         return [Regex]::Escape($pattern)
     }
@@ -474,7 +499,7 @@ function Get-EscapedRegex([Parameter(ValueFromPipeline=$true,Position=0)]$patter
     .synopsis 
     tests if given path is relative 
 #>
-function Test-IsRelativePath([Parameter(Mandatory=$true)]$path) {
+function Test-IsRelativePath([Parameter(Mandatory = $true)]$path) {
     if ([System.IO.Path]::isPathRooted($path)) { return $false }
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $false }
     return $true
@@ -494,23 +519,23 @@ function Test-IsRelativePath([Parameter(Mandatory=$true)]$path) {
        
        c:\test\file.txt
 #>
-function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $from,
-[Parameter(Mandatory=$true)][string][Alias("fullname")] $to
+function Get-AbsolutePath([Parameter(Mandatory = $true)][Alias("dir")][string] $from,
+    [Parameter(Mandatory = $true)][string][Alias("fullname")] $to
 ) {
-    if (test-path $from) { 
+    if (Test-Path $from) { 
         $it = (gi $from)
-        $dir = $it.fullname;  
+        $dir = $it.fullname  
         if (!$it.psiscontainer) {
             #this is a file, we need a directory
-            $dir = split-path -Parent $dir
+            $dir = Split-Path -Parent $dir
         }
     } 
     else { 
         $dir = $from 
     }
     
-    $p = join-path $dir $to
-    if (test-path $p) {
+    $p = Join-Path $dir $to
+    if (Test-Path $p) {
         return (gi $p).FullName
     }
     else {
@@ -522,16 +547,16 @@ function Get-AbsolutePath([Parameter(Mandatory=$true)][Alias("dir")][string] $fr
     .synopsis 
     returns drive symbol for path (i.e. `c`)
 #>
-function Get-DriveSymbol([Parameter(Mandatory=$true)]$path) {
+function Get-DriveSymbol([Parameter(Mandatory = $true)]$path) {
     if ($path -match "(?<drive>^[a-zA-Z]*):(?<path>.*)") { return $matches["drive"] }
     return $null
 }
 
 function Join-PathSeparated {
-param([Parameter(Mandatory=$true)][string] $Path,
-        [Parameter(Mandatory=$true)][string] $ChildPath,
+    param([Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $ChildPath,
         [string] $separator = "\"
-     ) 
+    ) 
     return $path.TrimEnd($separator) + $separator + $ChildPath.TrimStart($separator)
 }
 
@@ -546,91 +571,94 @@ param([Parameter(Mandatory=$true)][string] $Path,
     target file or directory
 #>
 function Get-RelativePath {
-[CmdletBinding()]
-param(
-[Parameter(Mandatory=$true)][Alias("dir")][string] $from,
-[Parameter(Mandatory=$true)][string][Alias("fullname")] $to,
-$separator = "\"
-) 
-    $defaultsep = @("/","\")
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][Alias("dir")][string] $from,
+        [Parameter(Mandatory = $true)][string][Alias("fullname")] $to,
+        $separator = "\"
+    ) 
+    $defaultsep = @("/", "\")
     try {
-        write-verbose "get relative paths of:"
-        write-verbose "$from"
-        write-verbose "$to"
-    $dir = $from 
-    $bothabsolute = !(test-ispathrelative $from) -and !(test-ispathrelative $to)
-    if ($bothabsolute) { Write-Verbose "Both paths are absolute" }
-    if (test-path $from) { 
-        $it = (gi $from)
-        if ((test-ispathrelative $from) -or $bothabsolute) {
-             Write-Verbose "using full path for comparison: $($it.fullname)"
-             $dir = $it.fullname
+        Write-Verbose "get relative paths of:"
+        Write-Verbose "$from"
+        Write-Verbose "$to"
+        $dir = $from 
+        $bothabsolute = !(Test-IsPathRelative $from) -and !(Test-IsPathRelative $to)
+        if ($bothabsolute) { Write-Verbose "Both paths are absolute" }
+        if (Test-Path $from) { 
+            $it = (gi $from)
+            if ((Test-IsPathRelative $from) -or $bothabsolute) {
+                Write-Verbose "using full path for comparison: $($it.fullname)"
+                $dir = $it.fullname
             }  
-        if (!$it.psiscontainer) {
-            #this is a file, we need a directory
-            $dir = split-path -Parent $dir
-            write-verbose "changed 'from' from file to directory: $dir"
-        }
-    } else {
-        write-verbose "path '$from' does not exist"
-    }
-   $defaultsep | % { $dir = $dir.replace($_, $separator) }
-    
-
-    $FullName = $to 
-    if ((test-path $to)) {
-        if (((test-ispathrelative $to) -or $bothabsolute)) {
-            $it = gi $to
-            Write-Verbose "using full path for comparison: $($it.fullname)"
-            $FullName = $it.fullname
-        }
-        if ((get-drivesymbol $from) -ne (get-drivesymbol $to)) {
-            $it = gi $to
-            #maybe the drive symbol is just an alias?
-            Write-Verbose "different drive symbols '$(get-drivesymbol $from)' and '$(get-drivesymbol $to)'. using full path for comparison: $($it.fullname)"
-            $FullName = $it.fullname
-        }
-    } else {
-        write-verbose "path '$to' does not exist"
-    }
-    
-    $defaultsep | % { $FullName = $FullName.replace($_, $separator) }
-    
-
-    $issubdir = $FullName -match (escape-regex $dir)
-    
-    if ($issubdir) {
-        $p = $FullName.Substring($Dir.length).Trim($separator)
-    } 
-    else {
-        $commonPartLength = 0
-        $lastslashidx = -10
-        for($i = 0; $i -lt ([MAth]::Min($dir.Length, $FullName.Length)) -and $dir[$i] -ieq $FullName[$i]; $i++) {
-            $commonPartLength++
-            if($dir[$i] -eq $separator -or $dir[$i] -in $defaultsep) {
-                $lastslashidx = $i
+            if (!$it.psiscontainer) {
+                #this is a file, we need a directory
+                $dir = Split-Path -Parent $dir
+                Write-Verbose "changed 'from' from file to directory: $dir"
             }
         }
-        $commonPartLength = $lastslashidx + 1
-        if ($commonPartLength -le 0) {
-            throw "Items '$dir' and '$fullname' have no common path"
+        else {
+            Write-Verbose "path '$from' does not exist"
+        }
+        $defaultsep | % { $dir = $dir.replace($_, $separator) }
+    
+
+        $FullName = $to 
+        if ((Test-Path $to)) {
+            if (((Test-IsPathRelative $to) -or $bothabsolute)) {
+                $it = gi $to
+                Write-Verbose "using full path for comparison: $($it.fullname)"
+                $FullName = $it.fullname
+            }
+            if ((Get-DriveSymbol $from) -ne (Get-DriveSymbol $to)) {
+                $it = gi $to
+                #maybe the drive symbol is just an alias?
+                Write-Verbose "different drive symbols '$(Get-DriveSymbol $from)' and '$(Get-DriveSymbol $to)'. using full path for comparison: $($it.fullname)"
+                $FullName = $it.fullname
+            }
+        }
+        else {
+            Write-Verbose "path '$to' does not exist"
+        }
+    
+        $defaultsep | % { $FullName = $FullName.replace($_, $separator) }
+    
+
+        $issubdir = $FullName -match (Escape-Regex $dir)
+    
+        if ($issubdir) {
+            $p = $FullName.Substring($Dir.length).Trim($separator)
+        } 
+        else {
+            $commonPartLength = 0
+            $lastslashidx = -10
+            for ($i = 0; $i -lt ([MAth]::Min($dir.Length, $FullName.Length)) -and $dir[$i] -ieq $FullName[$i]; $i++) {
+                $commonPartLength++
+                if ($dir[$i] -eq $separator -or $dir[$i] -in $defaultsep) {
+                    $lastslashidx = $i
+                }
+            }
+            $commonPartLength = $lastslashidx + 1
+            if ($commonPartLength -le 0) {
+                throw "Items '$dir' and '$fullname' have no common path"
+            }
+
+            $commonDir = $FullName.Substring(0, $commonPartLength)
+            $curdir = $dir.Substring($commonPartLength)
+            $filerel = $fullname.Substring($commonPartLength)
+            $separators = @($separator) + @($defaultsep)
+            $splits = $curdir.Trim($separators).Split([char[]]$separators)
+            $level = $splits.Length
+            $val = ""
+            $dots = $val
+            1..$level | % { $dots += "$separator.." }
+
+            $p = Join-PathSeparated $dots $filerel -separator $separator
         }
 
-        $commonDir = $FullName.Substring(0, $commonPartLength)
-        $curdir = $dir.Substring($commonPartLength)
-        $filerel = $fullname.Substring($commonPartLength)
-        $separators = @($separator) + @($defaultsep)
-        $splits = $curdir.Trim($separators).Split([char[]]$separators)
-        $level = $splits.Length
-        $val = ""
-        $dots = $val
-        1..$level | % { $dots += "$separator.." }
-
-        $p = Join-PathSeparated $dots $filerel -separator $separator
+        return $p.Trim($separator)
     }
-
-    return $p.Trim($separator)
-    } catch {
+    catch {
         throw "failed to get relative path from '$from' to '$to': $($_.Exception)`r`n$($_.ScriptStackTrace)"
     }
 }
@@ -638,34 +666,32 @@ $separator = "\"
 <#
 
 #>
-Function Get-ShortPath ([Parameter(ValueFromPipeline=$true)]$path)
-{
- BEGIN { 
-    $fso = New-Object -ComObject Scripting.FileSystemObject 
-}
+function Get-ShortPath ([Parameter(ValueFromPipeline = $true)]$path) {
+    begin { 
+        $fso = New-Object -ComObject Scripting.FileSystemObject 
+    }
 
-PROCESS {
-  if ($path -is [string]) {
-    $path = gi $path
-  }
-  If ($path.psiscontainer)
-  {
-    $fso.getfolder($path.fullname).ShortPath
-  }
+    process {
+        if ($path -is [string]) {
+            $path = gi $path
+        }
+        if ($path.psiscontainer) {
+            $fso.getfolder($path.fullname).ShortPath
+        }
 
-  ELSE {
-    $fso.getfile($path.fullname).ShortPath
+        else {
+            $fso.getfile($path.fullname).ShortPath
+        } 
     } 
-} 
 }
 
 <# 
     .synopsis 
     creates a Junction (File system directory link) at $path, targeting $target
 #>
-function New-Junction([Parameter(Mandatory=$true)][string]$path, [Parameter(Mandatory=$true)][string]$target) {
-    $path = $path.Replace("/","\")
-    $target = $target.Replace("/","\")
+function New-Junction([Parameter(Mandatory = $true)][string]$path, [Parameter(Mandatory = $true)][string]$target) {
+    $path = $path.Replace("/", "\")
+    $target = $target.Replace("/", "\")
     cmd /C mklink /J $path $target
 }
 
@@ -673,8 +699,8 @@ function New-Junction([Parameter(Mandatory=$true)][string]$path, [Parameter(Mand
     .synopsis 
     checks if given path is a Junction (File system directory link)
 #>
-function Test-Junction([Parameter(Mandatory=$true)]$path) {
-    $_ = get-item $path
+function Test-Junction([Parameter(Mandatory = $true)]$path) {
+    $_ = Get-Item $path
     $mode = "$($_.Mode)$(if($_.Attributes -band [IO.FileAttributes]::ReparsePoint) {'J'})"
     return $mode -match "J"        
 }
@@ -683,9 +709,8 @@ function Test-Junction([Parameter(Mandatory=$true)]$path) {
     .synopsis 
     return junction taget directory
 #>
-function Get-JunctionTarget([Parameter(Mandatory=$true)]$p_path)
-{
-    fsutil reparsepoint query $p_path | where-object { $_ -imatch 'Print Name:' } | foreach-object { $_ -replace 'Print Name\:\s*','' }
+function Get-JunctionTarget([Parameter(Mandatory = $true)]$p_path) {
+    fsutil reparsepoint query $p_path | Where-Object { $_ -imatch 'Print Name:' } | ForEach-Object { $_ -replace 'Print Name\:\s*', '' }
 }
 
 <#
@@ -700,32 +725,32 @@ function Get-JunctionTarget([Parameter(Mandatory=$true)]$p_path)
     if `modulepath` contains multiple modules, specify a module name
 #>
 function Install-ModuleLink {
-    [CmdletBinding(SupportsShouldProcess=$true,  ConfirmImpact="High")]
-    param([Parameter(mandatory=$true)][string]$modulepath,
-        [Parameter(mandatory=$false)]$modulename) 
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
+    param([Parameter(mandatory = $true)][string]$modulepath,
+        [Parameter(mandatory = $false)]$modulename) 
     
     $target = $modulepath
     if ($target.EndsWith(".psm1")) {
-        $target = split-path -parent ((get-item $target).FullName)    
+        $target = Split-Path -Parent ((Get-Item $target).FullName)    
     }
-    $target = (get-item $target).FullName
+    $target = (Get-Item $target).FullName
     if ($modulename -eq $null) {
-        $modulename = split-path -leaf $target
+        $modulename = Split-Path -Leaf $target
     }
     if ([string]::IsNullOrWhiteSpace($modulename)) {
         throw "Could not determine modulename for path '$modulepath'"
     }
     $path = "C:\Program Files\WindowsPowershell\Modules\$modulename"
-    if (test-path $path) {
+    if (Test-Path $path) {
         if ($PSCmdlet.ShouldProcess("removing path $path")) {
             # packagemanagement module may be locking some files in existing module dir
             if (gmo powershellget) { rmo powershellget }
             if (gmo packagemanagement) { rmo packagemanagement }
-            remove-item -Recurse $path -force
-            if (test-path $path) { remove-item -Recurse $path -force }
+            Remove-Item -Recurse $path -Force
+            if (Test-Path $path) { Remove-Item -Recurse $path -Force }
         }
     }
-    write-host "executing mklink /J $path $target"
+    Write-Host "executing mklink /J $path $target"
     cmd /C "mklink /J ""$path"" ""$target"""
 }
 
@@ -738,36 +763,38 @@ function Install-ModuleLink {
     update the repo
 #>
 function Update-ModuleLink {
-    [CmdletBinding(SupportsShouldProcess=$false)]
-    param([Parameter(mandatory=$false)]$module)
+    [CmdletBinding(SupportsShouldProcess = $false)]
+    param([Parameter(mandatory = $false)]$module)
     $modulename = $module
     if ($modulename -eq $null) {
         $modules = Get-ChildItem "C:\Program Files\WindowsPowershell\Modules" | ? {
-             $_.PsIsContainer -and (Test-Junction $_.FullName) 
+            $_.PsIsContainer -and (Test-Junction $_.FullName) 
         }
 
-        $modules | %{
+        $modules | % {
             Update-ModuleLink $_.name
         }
         return
     }
     $path = "C:\Program Files\WindowsPowershell\Modules\$modulename"
-    if (test-path $path) {
+    if (Test-Path $path) {
         pushd
         try {
-            if (!(test-junction $path)) {
+            if (!(Test-Junction $path)) {
                 throw "'$path' does not seem like a junction to me"
             }
-            $target = get-junctiontarget $path
+            $target = Get-JunctionTarget $path
             cd $target
-            if (".hg","..\.hg","..\..\.hg" | ? { test-path $_ } ) {
-                write-host "running hg pull in '$target'"
+            if (".hg", "..\.hg", "..\..\.hg" | ? { Test-Path $_ } ) {
+                Write-Host "running hg pull in '$target'"
                 hg pull
                 hg update
-            } elseif (".git","..\.git","..\..\.git" | ? { test-path $_ } ) {
-                write-host "running git pull in '$target'"
+            }
+            elseif (".git", "..\.git", "..\..\.git" | ? { Test-Path $_ } ) {
+                Write-Host "running git pull in '$target'"
                 git pull
-            } else {
+            }
+            else {
                 throw "path '$target' does not contain any recognizable VCS repo (git, hg)"
             }
         }
@@ -795,96 +822,98 @@ function Get-Listing
 ) {
 
     _GetListing @PSBoundParameters | 
-        write-output
+        Write-Output
 }
 
 function _GetListing {
     [CmdletBinding()]
     param
     (
-    [string] $Path = ".", 
-    $Excludes = @(), 
-    [Alias("Recurse")]
-    [switch] $Recursive,
+        [string] $Path = ".", 
+        $Excludes = @(), 
+        [Alias("Recurse")]
+        [switch] $Recursive,
     
-    [string] $Filter = $null,
-    $include = @(),
-    [switch][bool] $Files = $false,
-    [switch][bool] $Dirs = $false,
-    $level = 0,
-    $total = @(),
-    $maxLevel = $null,
-    $OriginalPath = $null
-)
+        [string] $Filter = $null,
+        $include = @(),
+        [switch][bool] $Files = $false,
+        [switch][bool] $Dirs = $false,
+        $level = 0,
+        $total = @(),
+        $maxLevel = $null,
+        $OriginalPath = $null
+    )
 
-$dontRecureResultDirs = ![string]::IsNullOrEmpty($Filter)
+    $dontRecureResultDirs = ![string]::IsNullOrEmpty($Filter)
 
-try {
-    if ($OriginalPath -eq $null) { $OriginalPath =  (get-item $path).FullName.Replace("\","/") }
-	if (($Path -eq $null) -or ($Path.Trim() -eq "")) {
-		#return $result
-	} 
-   if (!$dirs.ispresent -and !$files.ispresent) {
-       # get dirs by default
-       $dirs = $true
-       $files = $true
-   }
-   #$Excludes = @($Excludes | % { $_ -replace "\\","/" })
-
-    if ($Recurse) { $Recursive = $Recurse }
-	
-    Write-Progress -Activity "getting subdirs. Items Found = $($total.length)" -Status "path=$Path"
-    $fullpath = (get-item $path).FullName
-    
-    if (($fullpath -eq $null) -or ($fullpath.Trim() -eq "")) {
-        write-warning "cannot find or resolve path '$path'"
-		#return $result
-	} 
-    $path = $fullpath
     try {
-        $topDirs = Get-ChildItem $Path -ErrorAction Stop
-    } catch {
-        write-error "failed to get child items for path '$path': $_"
-        $topDirs = @()
-    }
-    $topDirs = $topDirs | where { 
-        $a = $_
-        $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"
-        $matchingExcludes = ($Excludes | where { 
-                $dirname -match "$_"
-              })
-        return $_.PSIsContainer `
-        -and ($_.Name -ne $null) `
-        -and ($matchingExcludes -eq $null)
-    } 
+        if ($OriginalPath -eq $null) { $OriginalPath = (Get-Item $path).FullName.Replace("\", "/") }
+        if (($Path -eq $null) -or ($Path.Trim() -eq "")) {
+            #return $result
+        } 
+        if (!$dirs.ispresent -and !$files.ispresent) {
+            # get dirs by default
+            $dirs = $true
+            $files = $true
+        }
+        #$Excludes = @($Excludes | % { $_ -replace "\\","/" })
+
+        if ($Recurse) { $Recursive = $Recurse }
+	
+        Write-Progress -Activity "getting subdirs. Items Found = $($total.length)" -Status "path=$Path"
+        $fullpath = (Get-Item $path).FullName
     
-    if ($Dirs) {
-        $topDirsNoResult = @()
-        $topDirs | % {                 
+        if (($fullpath -eq $null) -or ($fullpath.Trim() -eq "")) {
+            Write-Warning "cannot find or resolve path '$path'"
+            #return $result
+        } 
+        $path = $fullpath
+        try {
+            $topDirs = Get-ChildItem $Path -ErrorAction Stop
+        }
+        catch {
+            Write-Error "failed to get child items for path '$path': $_"
+            $topDirs = @()
+        }
+        $topDirs = $topDirs | where { 
+            $a = $_
+            $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"
+            $matchingExcludes = ($Excludes | where { 
+                    $dirname -match "$_"
+                })
+            return $_.PSIsContainer `
+                -and ($_.Name -ne $null) `
+                -and ($matchingExcludes -eq $null)
+        } 
+    
+        if ($Dirs) {
+            $topDirsNoResult = @()
+            $topDirs | % {                 
                 $a = $_
                 $dirname = "$($a.FullName.Replace("\","/").Substring($OriginalPath.length).Trim("/"))/"      
                 if (
                     $_ -ne $null `
-                    -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
-                    -and ([string]::IsNullOrEmpty($include) -or $dirname -match $include) `
+                        -and ([string]::IsNullOrEmpty($Filter) -or $_.Name -like $Filter) `
+                        -and ([string]::IsNullOrEmpty($include) -or $dirname -match $include) `
                 ) {
                     $_
-                } else {
+                }
+                else {
                     $topDirsNoResult += $_
                 }
             } | 
-            % { $total += $_; $_ } |
-            write-output
-        if ($dontRecureResultDirs) {
-            $topDirs = $topDirsNoResult
-        }
-    }
-    if ($Files) {
-        try {
-            if (!(test-path $Path)) {
-                write-warning "path '$Path' not found"
+                % { $total += $_; $_ } |
+                Write-Output
+            if ($dontRecureResultDirs) {
+                $topDirs = $topDirsNoResult
             }
-            Get-ChildItem $path -Filter:$Filter -Recurse:$false | 
+        }
+        if ($Files) {
+            try {
+                if (!(Test-Path $Path)) {
+                    Write-Warning "path '$Path' not found"
+                }
+                Get-ChildItem $path -Filter:$Filter -Recurse:$false | 
                     ? { !$_.PSIsContainer } |
                     ? {
                         if ($include -ne $null -and $include.length -gt 0) {
@@ -899,41 +928,44 @@ try {
                                 $name -match $_
                             }
                             return $matchingIncludes -ne $null                            
-                        } else {
+                        }
+                        else {
                             $true
                         }
                     } | 
                     % { $total += $_; $_ } | 
-                    write-output
-        } catch {
-            write-error "failed to get child items for path '$path': $_"
+                    Write-Output
+            }
+            catch {
+                Write-Error "failed to get child items for path '$path': $_"
+            }
         }
-    }
     
-    if ($Recursive -and ($maxlevel -eq $null -or $maxlevel -gt $level)) {
-        foreach($dir in $topDirs) {
-            if ([string]::IsNullOrEmpty($dir)) {
-                Write-Warning "empty dir!"
-            }
-            if ($dirs `
-                -and (![string]::IsNullOrEmpty($Filter) -and $dir.Name -like $Filter) `
-                -and (![string]::IsNullOrEmpty($include) -and $dir.Name -match $include)) {
-                #do not recurse into matching dirs
-                continue
-            }
-            else {
-                try {
-                    _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level+1) -total $total -maxLevel $maxlevel -OriginalPath $OriginalPath | 
-                        % { $total += $_; $_ } |
-                        write-output                                      
-                } catch {
-                    throw
+        if ($Recursive -and ($maxlevel -eq $null -or $maxlevel -gt $level)) {
+            foreach ($dir in $topDirs) {
+                if ([string]::IsNullOrEmpty($dir)) {
+                    Write-Warning "empty dir!"
+                }
+                if ($dirs `
+                        -and (![string]::IsNullOrEmpty($Filter) -and $dir.Name -like $Filter) `
+                        -and (![string]::IsNullOrEmpty($include) -and $dir.Name -match $include)) {
+                    #do not recurse into matching dirs
+                    continue
+                }
+                else {
+                    try {
+                        _GetListing -Path $dir.FullName -Excludes $Excludes -Recursive:$Recursive -Filter:$Filter -Files:$Files -Dirs:$Dirs -include:$include -level ($level + 1) -total $total -maxLevel $maxlevel -OriginalPath $OriginalPath | 
+                            % { $total += $_; $_ } |
+                            Write-Output                                      
+                    }
+                    catch {
+                        throw
+                    }
                 }
             }
         }
-    }
 
-    #return $result | where { $_ -ne $null }
+        #return $result | where { $_ -ne $null }
     }
     catch {
         throw
@@ -947,30 +979,30 @@ try {
 
 
 function find-upwards($pattern, $path = "." ) {
-        $path = (get-item $path).FullName
-        $foundfile = $null
-        if (!(get-item $path).PsIsContainer) {
-            $dir = split-path -Parent $path
+    $path = (Get-Item $path).FullName
+    $foundfile = $null
+    if (!(Get-Item $path).PsIsContainer) {
+        $dir = Split-Path -Parent $path
+    }
+    else {
+        $dir = $path
+    }
+    while (![string]::IsNullOrEmpty($dir)) {
+        if (($pattern | % { "$dir/$_" } | Test-Path) -eq $true) {
+            $reporoot = $dir
+            $foundfile = $pattern | % { "$dir/$_" } | ? { Test-Path $_ } | select -First 1
+            break
         }
-        else {
-            $dir = $path
-        }
-        while(![string]::IsNullOrEmpty($dir)) {
-            if (($pattern | % { "$dir/$_" } | test-path) -eq $true) {
-                $reporoot = $dir
-                $foundfile = $pattern | % { "$dir/$_" } | ? { test-path $_ } | select -First 1
-                break;
-            }
-            $dir = split-path -Parent $dir
-        }
+        $dir = Split-Path -Parent $dir
+    }
         
-        return $foundfile
+    return $foundfile
 }
 
 function Set-FileExtension {
     param(
-        [Parameter(Mandatory=$true)][string] $filename,
-        [Parameter(Mandatory=$true)][string] $ext
+        [Parameter(Mandatory = $true)][string] $filename,
+        [Parameter(Mandatory = $true)][string] $ext
     ) 
 
     $dir = [System.IO.Path]::GetDirectoryName($filename)
@@ -986,33 +1018,33 @@ function Set-FileExtension {
 function Convert-EnvUsername {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string] $from,
-        [Parameter(Mandatory=$true)][string] $to
+        [Parameter(Mandatory = $true)][string] $from,
+        [Parameter(Mandatory = $true)][string] $to
     )
 
     $vars = ls env:
 
-    foreach($v in $vars) {
+    foreach ($v in $vars) {
         if ($v.value.Contains($from)) {
-            $newval = ($v.value -replace $from,$to)
+            $newval = ($v.value -replace $from, $to)
             Set-EnvVar $v.name $newval
         }
     }
 }
 
-new-alias get-childitemsfiltered get-listing -Force
-new-alias Where-Is Find-CommandOnPath -Force
-new-alias Refresh-Env update-env -Force
+New-Alias get-childitemsfiltered get-listing -Force
+New-Alias Where-Is Find-CommandOnPath -Force
+New-Alias Refresh-Env update-env -Force
 # refreshenv alias might be already declared by chocolatey
-if ((get-alias refreshenv -erroraction Ignore) -eq $null) {
-	new-alias RefreshEnv refresh-env 
+if ((Get-Alias refreshenv -ErrorAction Ignore) -eq $null) {
+    New-Alias RefreshEnv refresh-env 
 }
 #new-alias Contains-Path test-envpath
-new-alias Escape-Regex get-escapedregex -Force
-new-alias Test-IsPathRelative Test-IsRelativePath -Force
-new-alias Get-PathRelative Get-RelativePath -Force
-new-alias Test-IsJunction Test-Junction -Force
-new-alias Replace-FileExtension Set-FileExtension -Force
-new-alias Replace-FileExt Set-FileExtension -Force
+New-Alias Escape-Regex get-escapedregex -Force
+New-Alias Test-IsPathRelative Test-IsRelativePath -Force
+New-Alias Get-PathRelative Get-RelativePath -Force
+New-Alias Test-IsJunction Test-Junction -Force
+New-Alias Replace-FileExtension Set-FileExtension -Force
+New-Alias Replace-FileExt Set-FileExtension -Force
 
-Export-moduleMember -Function * -Alias *
+Export-ModuleMember -Function * -Alias *
