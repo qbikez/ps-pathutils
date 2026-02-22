@@ -1,3 +1,6 @@
+# Dot-source git helper functions
+. (Join-Path $PSScriptRoot "git-helpers.ps1")
+
 <#
 .Synopsis 
 finds the specified command on system PATH
