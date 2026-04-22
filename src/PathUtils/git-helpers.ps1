@@ -107,29 +107,62 @@ function global:Register-GitWorktreeProvider {
     [CmdletBinding()]
     param()
 
-    $providerTypeName = 'PathUtils.WtProvider'
     $providerName = 'WtProvider'
     $providerLoaded = $null -ne (Get-PSProvider -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $providerName })
 
     if (-not $providerLoaded) {
-        $providerSourcePath = Join-Path -Path $PSScriptRoot -ChildPath 'WtProvider.cs'
-        if (-not (Test-Path -LiteralPath $providerSourcePath)) {
-            throw "Provider source file not found: $providerSourcePath"
-        }
+        $moduleRoot = Split-Path -Path $PSScriptRoot -Parent
+        $providerProjectDir = Join-Path -Path $moduleRoot -ChildPath 'PathUtils.WtProvider'
+        $providerProjectPath = Join-Path -Path $providerProjectDir -ChildPath 'PathUtils.WtProvider.csproj'
+        $providerSourcePath = Join-Path -Path $providerProjectDir -ChildPath 'WtProvider.cs'
+        $providerAssemblyPath = Join-Path -Path $providerProjectDir -ChildPath 'bin\Release\net10.0\PathUtils.WtProvider.dll'
 
-        $providerAssemblyPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'PathUtils.WtProvider.dll'
-        $shouldBuild = -not (Test-Path -LiteralPath $providerAssemblyPath)
-        if (-not $shouldBuild) {
-            $sourceInfo = Get-Item -LiteralPath $providerSourcePath -ErrorAction Stop
-            $assemblyInfo = Get-Item -LiteralPath $providerAssemblyPath -ErrorAction Stop
-            $shouldBuild = $sourceInfo.LastWriteTimeUtc -gt $assemblyInfo.LastWriteTimeUtc
-        }
-
-        if ($shouldBuild) {
-            if (Test-Path -LiteralPath $providerAssemblyPath) {
-                Remove-Item -LiteralPath $providerAssemblyPath -Force
+        if (Test-Path -LiteralPath $providerProjectPath) {
+            $shouldBuild = $true
+            if ((Test-Path -LiteralPath $providerAssemblyPath) -and (Test-Path -LiteralPath $providerSourcePath)) {
+                $sourceInfo = Get-Item -LiteralPath $providerSourcePath -ErrorAction Stop
+                $assemblyInfo = Get-Item -LiteralPath $providerAssemblyPath -ErrorAction Stop
+                $shouldBuild = $sourceInfo.LastWriteTimeUtc -gt $assemblyInfo.LastWriteTimeUtc
             }
-            Add-Type -Path $providerSourcePath -OutputAssembly $providerAssemblyPath -ErrorAction Stop
+
+            if ($shouldBuild) {
+                $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+                if ($null -eq $dotnetCmd) {
+                    throw "dotnet SDK not found. Install .NET SDK or keep a prebuilt provider assembly."
+                }
+
+                & $dotnetCmd.Source build $providerProjectPath -c Release -nologo "-p:PowerShellHome=$PSHOME"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to build provider project: $providerProjectPath"
+                }
+            }
+        }
+        else {
+            if (-not (Test-Path -LiteralPath $providerSourcePath)) {
+                throw "Provider source file not found: $providerSourcePath"
+            }
+
+            $providerAssemblyPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'PathUtils.WtProvider.dll'
+            $assemblyExists = Test-Path -LiteralPath $providerAssemblyPath
+            if ($assemblyExists) {
+                $sourceInfo = Get-Item -LiteralPath $providerSourcePath -ErrorAction Stop
+                $assemblyInfo = Get-Item -LiteralPath $providerAssemblyPath -ErrorAction Stop
+                $shouldBuild = $sourceInfo.LastWriteTimeUtc -gt $assemblyInfo.LastWriteTimeUtc
+            }
+            else {
+                $shouldBuild = $true
+            }
+
+            if ($shouldBuild) {
+                if (Test-Path -LiteralPath $providerAssemblyPath) {
+                    Remove-Item -LiteralPath $providerAssemblyPath -Force
+                }
+                Add-Type -Path $providerSourcePath -OutputAssembly $providerAssemblyPath -ErrorAction Stop
+            }
+        }
+
+        if (-not (Test-Path -LiteralPath $providerAssemblyPath)) {
+            throw "Provider assembly not found: $providerAssemblyPath"
         }
 
         Import-Module -Name $providerAssemblyPath -Force -ErrorAction Stop
