@@ -1,6 +1,11 @@
 # Dot-source git helper functions
 . (Join-Path $PSScriptRoot "git-helpers.ps1")
 
+$formatFile = Join-Path $PSScriptRoot "PathUtils.format.ps1xml"
+if (Test-Path -LiteralPath $formatFile) {
+    Update-FormatData -PrependPath $formatFile -ErrorAction SilentlyContinue
+}
+
 <#
 .Synopsis 
 finds the specified command on system PATH

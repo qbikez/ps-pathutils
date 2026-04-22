@@ -245,41 +245,34 @@ function global:Set-LocationEx {
     if ($Path -match '^wt:[\\/]?(.*)$') {
         Register-GitWorktreeProvider
 
-        $normalized = $Matches[1].Trim('\\', '/')
+        $normalized = $Matches[1].Trim([char[]]@('\', '/'))
         $segments = if ($normalized) { $normalized -split '[\\/]' } else { @() }
-        $worktreeSelector = if ($segments.Count -gt 0) { $segments[0] } else { $null }
         $explicitRelative = if ($segments.Count -gt 1) { ($segments | Select-Object -Skip 1) -join '\' } else { $null }
 
-        $worktrees = @(Get-GitWorktree)
-        if (-not $worktrees) {
+        $providerPath = if ([string]::IsNullOrWhiteSpace($normalized)) { 'wt:\' } else { "wt:\$normalized" }
+        $providerItem = if ([string]::IsNullOrWhiteSpace($normalized)) {
+            Get-ChildItem -LiteralPath 'wt:\' -ErrorAction SilentlyContinue | Where-Object { $_.IsMain } | Select-Object -First 1
+        }
+        else {
+            Get-Item -LiteralPath $providerPath -ErrorAction SilentlyContinue
+        }
+
+        if ($null -eq $providerItem) {
+            Write-Error "Worktree path not found: $providerPath"
             return
         }
 
-        $target = if ([string]::IsNullOrWhiteSpace($worktreeSelector)) {
-            $worktrees | Where-Object { $_.IsMain } | Select-Object -First 1
-        }
-        else {
-            $worktrees | Where-Object { $_.Name -ieq $worktreeSelector } | Select-Object -First 1
-            if (-not $?) { $null }
-        }
-
-        if ($null -eq $target -and -not [string]::IsNullOrWhiteSpace($worktreeSelector)) {
-            $target = $worktrees | Where-Object { $_.Name -like "*$worktreeSelector*" } | Select-Object -First 1
-        }
-
-        if ($null -eq $target) {
-            Write-Error "Worktree not found: $worktreeSelector"
+        $targetRootPath = if ($providerItem.PSObject.Properties.Name -contains 'FullName') { $providerItem.FullName } else { $providerItem.Path }
+        if ([string]::IsNullOrWhiteSpace($targetRootPath)) {
+            Write-Error "Failed to resolve file system path for provider item: $providerPath"
             return
         }
 
-        $targetPath = "wt:\$($target.Name)"
-        if ($explicitRelative) {
-            $targetPath = "$targetPath\$explicitRelative"
-        }
-        else {
-            $relativeFromCurrent = Get-GitWorktreeRelativePath -BaseWorktreePath $target.Path
+        $targetPath = $targetRootPath
+        if (-not $explicitRelative) {
+            $relativeFromCurrent = Get-GitWorktreeRelativePath -BaseWorktreePath $targetRootPath
             if ($relativeFromCurrent) {
-                $candidate = "$targetPath\$relativeFromCurrent"
+                $candidate = Join-Path -Path $targetRootPath -ChildPath $relativeFromCurrent
                 if (Test-Path -LiteralPath $candidate) {
                     $targetPath = $candidate
                 }
@@ -331,7 +324,52 @@ Register-ArgumentCompleter -CommandName Set-LocationEx, Set-Location, cd, Get-Ch
     }
 }
 
-# Register-GitWorktreeProvider
+function script:Enable-WtCdAliasOverride {
+    if (-not $script:WtCdAliasStateInitialized) {
+        $existingCdAlias = Get-Alias -Name cd -Scope Global -ErrorAction SilentlyContinue
+        $script:WtCdPreviousDefinition = if ($null -ne $existingCdAlias) { $existingCdAlias.Definition } else { $null }
+        $script:WtCdAliasStateInitialized = $true
+    }
 
-#Set-Alias -Name cd -Value Set-LocationEx -Option AllScope -Scope Global
+    Set-Alias -Name cd -Value Set-LocationEx -Option AllScope -Scope Global
+}
+
+function script:Restore-WtCdAliasOverride {
+    if (-not $script:WtCdAliasStateInitialized) {
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($script:WtCdPreviousDefinition)) {
+        Remove-Item -Path Alias:cd -Scope Global -ErrorAction SilentlyContinue
+    }
+    else {
+        Set-Alias -Name cd -Value $script:WtCdPreviousDefinition -Option AllScope -Scope Global
+    }
+}
+
+function script:Register-WtOnRemoveHandler {
+    if ($script:WtOnRemoveHandlerRegistered) {
+        return
+    }
+
+    $module = $ExecutionContext.SessionState.Module
+    if ($null -eq $module) {
+        return
+    }
+
+    $previousOnRemove = $module.OnRemove
+    $module.OnRemove = {
+        if ($null -ne $previousOnRemove) {
+            & $previousOnRemove
+        }
+
+        Restore-WtCdAliasOverride
+    }
+
+    $script:WtOnRemoveHandlerRegistered = $true
+}
+
+Register-GitWorktreeProvider
+Enable-WtCdAliasOverride
+Register-WtOnRemoveHandler
 New-Alias "git-wt" Get-GitWorktree -Scope Global -Force

@@ -95,7 +95,8 @@ namespace PathUtils
                 var branch = (!isDetached && !isPrunable) ? status : null;
                 var fullPath = System.IO.Path.GetFullPath(path);
                 var name = new DirectoryInfo(fullPath).Name;
-                var isMain = string.Equals(fullPath, repoRoot, StringComparison.OrdinalIgnoreCase);
+                var gitDirPath = System.IO.Path.Combine(fullPath, ".git");
+                var isMain = Directory.Exists(gitDirPath);
 
                 list.Add(new GitWorktreeInfo
                 {
@@ -270,16 +271,7 @@ namespace PathUtils
             {
                 foreach (var wt in GetWorktrees())
                 {
-                    WriteItemObject(new
-                    {
-                        wt.Name,
-                        wt.Path,
-                        wt.Branch,
-                        wt.CommitHash,
-                        wt.IsDetached,
-                        wt.IsPrunable,
-                        wt.IsMain,
-                    }, wt.Name, true);
+                    WriteItemObject(wt, wt.Name, true);
                 }
                 return;
             }
