@@ -2,34 +2,47 @@
 <Configuration>
   <ViewDefinitions>
     <View>
-      <Name>PathUtils.GitWorktreeInfoList</Name>
+      <Name>PathUtils.GitWorktreeInfoTable</Name>
       <ViewSelectedBy>
         <TypeName>PathUtils.GitWorktreeInfo</TypeName>
       </ViewSelectedBy>
-      <ListControl>
-        <ListEntries>
-          <ListEntry>
-            <ListItems>
-              <ListItem>
-                <Label>Name</Label>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>Name</Label>
+            <Width>24</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Branch</Label>
+            <Width>24</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Main</Label>
+            <Width>6</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Path</Label>
+          </TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
                 <PropertyName>Name</PropertyName>
-              </ListItem>
-              <ListItem>
-                <Label>Branch</Label>
+              </TableColumnItem>
+              <TableColumnItem>
                 <PropertyName>Branch</PropertyName>
-              </ListItem>
-              <ListItem>
-                <Label>Path</Label>
-                <PropertyName>Path</PropertyName>
-              </ListItem>
-              <ListItem>
-                <Label>Main</Label>
+              </TableColumnItem>
+              <TableColumnItem>
                 <PropertyName>IsMain</PropertyName>
-              </ListItem>
-            </ListItems>
-          </ListEntry>
-        </ListEntries>
-      </ListControl>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Path</PropertyName>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
     </View>
   </ViewDefinitions>
 </Configuration>

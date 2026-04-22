@@ -340,7 +340,7 @@ function script:Restore-WtCdAliasOverride {
     }
 
     if ([string]::IsNullOrWhiteSpace($script:WtCdPreviousDefinition)) {
-        Remove-Item -Path Alias:cd -Scope Global -ErrorAction SilentlyContinue
+        Set-Alias -Name cd -Value Set-Location -Option AllScope -Scope Global
     }
     else {
         Set-Alias -Name cd -Value $script:WtCdPreviousDefinition -Option AllScope -Scope Global
