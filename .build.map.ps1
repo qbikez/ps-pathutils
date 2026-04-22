@@ -12,19 +12,23 @@ $targets = @{
             throw "dotnet SDK was not found on PATH."
         }
 
-        $args = @(
+        $sessionStamp = "pwsh-$($PSVersionTable.PSVersion)-pid-$PID"
+        $outputDir = "src/PathUtils.WtProvider/bin/sessions/$sessionStamp"
+        $buildArgs = @(
             "build"
             $projectPath
             "-c"
             "Release"
             "-nologo"
+            "-o"
+            $outputDir
             "-p:PowerShellHome=$PSHOME"
         )
         if ($noRestore) {
-            $args += "--no-restore"
+            $buildArgs += "--no-restore"
         }
 
-        & $dotnetCmd.Source @args
+        & $dotnetCmd.Source @buildArgs
         if ($LASTEXITCODE -ne 0) {
             throw "Build failed for $projectPath"
         }

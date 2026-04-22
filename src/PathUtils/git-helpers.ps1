@@ -115,7 +115,9 @@ function global:Register-GitWorktreeProvider {
         $providerProjectDir = Join-Path -Path $moduleRoot -ChildPath 'PathUtils.WtProvider'
         $providerProjectPath = Join-Path -Path $providerProjectDir -ChildPath 'PathUtils.WtProvider.csproj'
         $providerSourcePath = Join-Path -Path $providerProjectDir -ChildPath 'WtProvider.cs'
-        $providerAssemblyPath = Join-Path -Path $providerProjectDir -ChildPath 'bin\Release\net10.0\PathUtils.WtProvider.dll'
+        $sessionStamp = "pwsh-$($PSVersionTable.PSVersion)-pid-$PID"
+        $providerOutputDir = Join-Path -Path $providerProjectDir -ChildPath (Join-Path -Path 'bin\sessions' -ChildPath $sessionStamp)
+        $providerAssemblyPath = Join-Path -Path $providerOutputDir -ChildPath 'PathUtils.WtProvider.dll'
 
         if (Test-Path -LiteralPath $providerProjectPath) {
             $shouldBuild = $true
@@ -123,6 +125,22 @@ function global:Register-GitWorktreeProvider {
                 $sourceInfo = Get-Item -LiteralPath $providerSourcePath -ErrorAction Stop
                 $assemblyInfo = Get-Item -LiteralPath $providerAssemblyPath -ErrorAction Stop
                 $shouldBuild = $sourceInfo.LastWriteTimeUtc -gt $assemblyInfo.LastWriteTimeUtc
+
+                if (-not $shouldBuild) {
+                    try {
+                        $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($providerAssemblyPath)
+                        $smaReference = $assemblyName.GetReferencedAssemblies() | Where-Object { $_.Name -eq 'System.Management.Automation' } | Select-Object -First 1
+                        if ($null -ne $smaReference) {
+                            $loadedSmaVersion = [System.Management.Automation.PSObject].Assembly.GetName().Version
+                            if ($smaReference.Version -ne $loadedSmaVersion) {
+                                $shouldBuild = $true
+                            }
+                        }
+                    }
+                    catch {
+                        $shouldBuild = $true
+                    }
+                }
             }
 
             if ($shouldBuild) {
@@ -131,7 +149,7 @@ function global:Register-GitWorktreeProvider {
                     throw "dotnet SDK not found. Install .NET SDK or keep a prebuilt provider assembly."
                 }
 
-                & $dotnetCmd.Source build $providerProjectPath -c Release -nologo "-p:PowerShellHome=$PSHOME"
+                & $dotnetCmd.Source build $providerProjectPath -c Release -nologo -o $providerOutputDir "-p:PowerShellHome=$PSHOME"
                 if ($LASTEXITCODE -ne 0) {
                     throw "Failed to build provider project: $providerProjectPath"
                 }
@@ -313,8 +331,7 @@ Register-ArgumentCompleter -CommandName Set-LocationEx, Set-Location, cd, Get-Ch
     }
 }
 
-Register-GitWorktreeProvider
+# Register-GitWorktreeProvider
 
-Set-Alias -Name cd -Value Set-LocationEx -Option AllScope -Scope Global
-
+#Set-Alias -Name cd -Value Set-LocationEx -Option AllScope -Scope Global
 New-Alias "git-wt" Get-GitWorktree -Scope Global -Force
