@@ -1,7 +1,7 @@
 @{
 
     RootModule        = 'GitWorktrees.psm1'
-    ModuleVersion     = '1.0.0'
+    ModuleVersion     = '1.0.1'
     GUID              = 'f478d9cc-6f8d-4c8a-a0a4-1134fd274300'
     Author            = 'jakub.pawlowski'
     CompanyName       = 'Unknown'
@@ -27,4 +27,5 @@
         }
     }
 }
+
 
