@@ -348,7 +348,9 @@ Register-ArgumentCompleter -CommandName Set-LocationEx, Set-Location, cd, Get-Ch
 function script:Enable-WtCdAliasOverride {
     if (-not $script:WtCdAliasStateInitialized) {
         $existingCdAlias = Get-Alias -Name cd -Scope Global -ErrorAction SilentlyContinue
-        $script:WtCdPreviousDefinition = if ($null -ne $existingCdAlias) { $existingCdAlias.Definition } else { $null }
+        $previousDefinition = if ($null -ne $existingCdAlias) { $existingCdAlias.Definition } else { $null }
+        # Never persist our own override as the "original" alias target.
+        $script:WtCdPreviousDefinition = if ($previousDefinition -eq 'Set-LocationEx') { 'Set-Location' } else { $previousDefinition }
         $script:WtCdAliasStateInitialized = $true
     }
 
@@ -360,12 +362,15 @@ function script:Restore-WtCdAliasOverride {
         return
     }
 
-    if ([string]::IsNullOrWhiteSpace($script:WtCdPreviousDefinition)) {
+    if ([string]::IsNullOrWhiteSpace($script:WtCdPreviousDefinition) -or $script:WtCdPreviousDefinition -eq 'Set-LocationEx') {
         Set-Alias -Name cd -Value Set-Location -Option AllScope -Scope Global
     }
     else {
         Set-Alias -Name cd -Value $script:WtCdPreviousDefinition -Option AllScope -Scope Global
     }
+
+    $script:WtCdAliasStateInitialized = $false
+    $script:WtCdPreviousDefinition = $null
 }
 
 function script:Register-WtOnRemoveHandler {
@@ -379,13 +384,21 @@ function script:Register-WtOnRemoveHandler {
     }
 
     $previousOnRemove = $module.OnRemove
+    $wtCdPreviousDefinition = $script:WtCdPreviousDefinition
     $module.OnRemove = {
         if ($null -ne $previousOnRemove) {
             & $previousOnRemove
         }
 
-        Restore-WtCdAliasOverride
-    }
+        $targetCdCommand = if ([string]::IsNullOrWhiteSpace($wtCdPreviousDefinition) -or $wtCdPreviousDefinition -eq 'Set-LocationEx') {
+            'Set-Location'
+        }
+        else {
+            $wtCdPreviousDefinition
+        }
+
+        Set-Alias -Name cd -Value $targetCdCommand -Option AllScope -Scope Global -ErrorAction SilentlyContinue
+    }.GetNewClosure()
 
     $script:WtOnRemoveHandlerRegistered = $true
 }
