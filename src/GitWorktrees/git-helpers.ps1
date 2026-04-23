@@ -311,6 +311,8 @@ Register-ArgumentCompleter -CommandName Set-LocationEx, Set-Location, cd, Get-Ch
         return
     }
 
+    Register-GitWorktreeProvider
+
     $prefix = if ($wordToComplete -match '^wt:[\\/]?(.*)') { $Matches[1] } else { '' }
 
     if (-not $prefix) {
@@ -322,8 +324,8 @@ Register-ArgumentCompleter -CommandName Set-LocationEx, Set-Location, cd, Get-Ch
         )
     }
 
-    Get-GitWorktree | ForEach-Object {
-        $name = Split-Path -Leaf $_.Path
+    Get-ChildItem -LiteralPath 'wt:\' -ErrorAction SilentlyContinue | ForEach-Object {
+        $name = $_.Name
         if ($name -like "$prefix*") {
             $completionText = "wt:\$name"
             $listText = $name
