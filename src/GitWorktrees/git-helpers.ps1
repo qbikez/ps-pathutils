@@ -118,14 +118,8 @@ function global:Register-GitWorktreeProvider {
             )
 
             try {
-                $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($AssemblyPath)
-                $smaReference = $assemblyName.GetReferencedAssemblies() | Where-Object { $_.Name -eq 'System.Management.Automation' } | Select-Object -First 1
-                if ($null -eq $smaReference) {
-                    return $true
-                }
-
-                $loadedSmaVersion = [System.Management.Automation.PSObject].Assembly.GetName().Version
-                return $smaReference.Version -eq $loadedSmaVersion
+                $null = [System.Reflection.AssemblyName]::GetAssemblyName($AssemblyPath)
+                return $true
             }
             catch {
                 return $false
