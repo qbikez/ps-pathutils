@@ -12,7 +12,7 @@
     RootModule        = 'PathUtils.psm1'
 
     # Version number of this module.
-    ModuleVersion    = '2.0.2'
+    ModuleVersion    = '1.0.24'
 
     # ID used to uniquely identify this module
     GUID              = 'f63db64d-2afe-4c84-a09a-4c4148ec9df3'
@@ -60,7 +60,7 @@
     # TypesToProcess = @()
 
     # Format files (.ps1xml) to be loaded when importing this module
-    FormatsToProcess = @('PathUtils.format.ps1xml')
+    # FormatsToProcess = @()
 
     # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
     # NestedModules = @()
@@ -86,8 +86,7 @@
     # List of all files packaged with this module
     FileList          = @(
         'PathUtils.psd1',
-        'PathUtils.psm1',
-        'PathUtils.format.ps1xml'
+        'PathUtils.psm1'
     )
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
