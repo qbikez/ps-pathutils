@@ -111,33 +111,54 @@ function global:Register-GitWorktreeProvider {
     $providerLoaded = $null -ne (Get-PSProvider -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $providerName })
 
     if (-not $providerLoaded) {
+        function Test-WtProviderAssemblyCompatibility {
+            param(
+                [Parameter(Mandatory = $true)]
+                [string]$AssemblyPath
+            )
+
+            try {
+                $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($AssemblyPath)
+                $smaReference = $assemblyName.GetReferencedAssemblies() | Where-Object { $_.Name -eq 'System.Management.Automation' } | Select-Object -First 1
+                if ($null -eq $smaReference) {
+                    return $true
+                }
+
+                $loadedSmaVersion = [System.Management.Automation.PSObject].Assembly.GetName().Version
+                return $smaReference.Version -eq $loadedSmaVersion
+            }
+            catch {
+                return $false
+            }
+        }
+
         $moduleRoot = Split-Path -Path $PSScriptRoot -Parent
         $providerProjectDir = Join-Path -Path $moduleRoot -ChildPath 'PathUtils.WtProvider'
         $providerProjectPath = Join-Path -Path $providerProjectDir -ChildPath 'PathUtils.WtProvider.csproj'
         $providerSourcePath = Join-Path -Path $providerProjectDir -ChildPath 'WtProvider.cs'
+        $providerLibDir = Join-Path -Path $PSScriptRoot -ChildPath 'lib'
+        $packagedAssemblyPath = Join-Path -Path $providerLibDir -ChildPath 'PathUtils.WtProvider.dll'
         $sessionStamp = "pwsh-$($PSVersionTable.PSVersion)-pid-$PID"
         $providerOutputDir = Join-Path -Path $providerProjectDir -ChildPath (Join-Path -Path 'bin\sessions' -ChildPath $sessionStamp)
-        $providerAssemblyPath = Join-Path -Path $providerOutputDir -ChildPath 'PathUtils.WtProvider.dll'
+        $providerAssemblyPath = $packagedAssemblyPath
 
-        if (Test-Path -LiteralPath $providerProjectPath) {
+        if ((Test-Path -LiteralPath $packagedAssemblyPath) -and (Test-WtProviderAssemblyCompatibility -AssemblyPath $packagedAssemblyPath)) {
+            $providerAssemblyPath = $packagedAssemblyPath
+        }
+        else {
+            $providerAssemblyPath = $null
+        }
+
+        if (($null -eq $providerAssemblyPath) -and (Test-Path -LiteralPath $providerProjectPath)) {
             $shouldBuild = $true
+            $providerAssemblyPath = Join-Path -Path $providerOutputDir -ChildPath 'PathUtils.WtProvider.dll'
             if ((Test-Path -LiteralPath $providerAssemblyPath) -and (Test-Path -LiteralPath $providerSourcePath)) {
                 $sourceInfo = Get-Item -LiteralPath $providerSourcePath -ErrorAction Stop
                 $assemblyInfo = Get-Item -LiteralPath $providerAssemblyPath -ErrorAction Stop
                 $shouldBuild = $sourceInfo.LastWriteTimeUtc -gt $assemblyInfo.LastWriteTimeUtc
 
                 if (-not $shouldBuild) {
-                    try {
-                        $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($providerAssemblyPath)
-                        $smaReference = $assemblyName.GetReferencedAssemblies() | Where-Object { $_.Name -eq 'System.Management.Automation' } | Select-Object -First 1
-                        if ($null -ne $smaReference) {
-                            $loadedSmaVersion = [System.Management.Automation.PSObject].Assembly.GetName().Version
-                            if ($smaReference.Version -ne $loadedSmaVersion) {
-                                $shouldBuild = $true
-                            }
-                        }
-                    }
-                    catch {
+                    if (-not (Test-WtProviderAssemblyCompatibility -AssemblyPath $providerAssemblyPath)) {
                         $shouldBuild = $true
                     }
                 }
@@ -155,9 +176,9 @@ function global:Register-GitWorktreeProvider {
                 }
             }
         }
-        else {
+        elseif ($null -eq $providerAssemblyPath) {
             if (-not (Test-Path -LiteralPath $providerSourcePath)) {
-                throw "Provider source file not found: $providerSourcePath"
+                throw "Provider assembly not found at '$packagedAssemblyPath' and provider source file not found: $providerSourcePath"
             }
 
             $providerAssemblyPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'PathUtils.WtProvider.dll'
@@ -179,8 +200,8 @@ function global:Register-GitWorktreeProvider {
             }
         }
 
-        if (-not (Test-Path -LiteralPath $providerAssemblyPath)) {
-            throw "Provider assembly not found: $providerAssemblyPath"
+        if ([string]::IsNullOrWhiteSpace($providerAssemblyPath) -or (-not (Test-Path -LiteralPath $providerAssemblyPath))) {
+            throw "Provider assembly not found. Expected packaged assembly at '$packagedAssemblyPath' or build output at '$providerOutputDir'."
         }
 
         Import-Module -Name $providerAssemblyPath -Force -ErrorAction Stop

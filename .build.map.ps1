@@ -12,8 +12,9 @@ $targets = @{
             throw "dotnet SDK was not found on PATH."
         }
 
-        $sessionStamp = "pwsh-$($PSVersionTable.PSVersion)-pid-$PID"
-        $outputDir = "src/PathUtils.WtProvider/bin/sessions/$sessionStamp"
+        $outputDir = "src/PathUtils.WtProvider/bin/pack"
+        $moduleLibDir = "src/PathUtils/lib"
+        $moduleAssemblyPath = Join-Path -Path $moduleLibDir -ChildPath "PathUtils.WtProvider.dll"
         $buildArgs = @(
             "build"
             $projectPath
@@ -32,6 +33,17 @@ $targets = @{
         if ($LASTEXITCODE -ne 0) {
             throw "Build failed for $projectPath"
         }
+
+        if (-not (Test-Path -LiteralPath $moduleLibDir)) {
+            New-Item -Path $moduleLibDir -ItemType Directory -Force | Out-Null
+        }
+
+        $builtAssemblyPath = Join-Path -Path $outputDir -ChildPath "PathUtils.WtProvider.dll"
+        if (-not (Test-Path -LiteralPath $builtAssemblyPath)) {
+            throw "Built provider assembly not found: $builtAssemblyPath"
+        }
+
+        Copy-Item -LiteralPath $builtAssemblyPath -Destination $moduleAssemblyPath -Force
     }
     
     "npm" = [ordered]@{
