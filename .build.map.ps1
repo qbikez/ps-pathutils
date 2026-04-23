@@ -13,7 +13,7 @@ $targets = @{
         }
 
         $outputDir = "src/PathUtils.WtProvider/bin/pack"
-        $moduleLibDir = "src/PathUtils/lib"
+        $moduleLibDir = "src/GitWorktrees/lib"
         $moduleAssemblyPath = Join-Path -Path $moduleLibDir -ChildPath "PathUtils.WtProvider.dll"
         $buildArgs = @(
             "build"
