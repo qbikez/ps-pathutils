@@ -274,7 +274,7 @@ function script:Enable-WtSetLocationOverride {
         $script:WtSetLocationStateInitialized = $true
     }
 
-    function global:Set-Location {
+    $wtSetLocationWrapper = {
         [CmdletBinding()]
         param(
             [Parameter(Position = 0, ValueFromPipelineByPropertyName = $true)]
@@ -285,10 +285,16 @@ function script:Enable-WtSetLocationOverride {
 
         Set-LocationEx @PSBoundParameters
     }
+
+    Set-Item -Path Function:\global:Set-Location -Value $wtSetLocationWrapper
 }
 
 function script:Restore-WtSetLocationOverride {
+    [CmdletBinding()]
+    param()
+
     if (-not $script:WtSetLocationStateInitialized) {
+        Write-Verbose "Restore-WtSetLocationOverride: not initialized"
         return
     }
 
@@ -296,18 +302,24 @@ function script:Restore-WtSetLocationOverride {
         # Another module may have changed Set-Location after us; avoid clobbering it.
         $script:WtSetLocationStateInitialized = $false
         $script:WtPreviousSetLocationScriptBlock = $null
+
+        Write-Verbose "Restore-WtSetLocationOverride: not present"
         return
     }
 
     if ($null -ne $script:WtPreviousSetLocationScriptBlock) {
+        Write-Verbose "Restore-WtSetLocationOverride: restoring script block"
         Set-Item -Path Function:\global:Set-Location -Value $script:WtPreviousSetLocationScriptBlock
     }
     else {
-        Remove-Item -Path Function:\global:Set-Location -ErrorAction SilentlyContinue
+        Write-Verbose "Restore-WtSetLocationOverride: removing script block"
+        Remove-Item -Path Function:\global:Set-Location
+        Remove-Item -Path Function:\Set-Location
     }
 
     $script:WtSetLocationStateInitialized = $false
     $script:WtPreviousSetLocationScriptBlock = $null
+    Write-Verbose "Restore-WtSetLocationOverride: reset state"
 }
 
 function script:Register-WtOnRemoveHandler {
@@ -330,6 +342,201 @@ function script:Register-WtOnRemoveHandler {
     }.GetNewClosure()
 
     $script:WtOnRemoveHandlerRegistered = $true
+}
+
+function global:Get-SetLocationWrapperGraph {
+    [CmdletBinding()]
+    param(
+        [string]$CommandName = 'Set-Location',
+        [int]$MaxDepth = 16
+    )
+
+    function Resolve-SetLocationInnerCandidates {
+        param(
+            [Parameter(Mandatory = $true)]
+            [Management.Automation.CommandInfo]$Command
+        )
+
+        if ($Command.CommandType -ne 'Function') {
+            return @()
+        }
+
+        $scriptText = $Command.ScriptBlock.ToString()
+        $commandAsts = $Command.ScriptBlock.Ast.FindAll(
+            {
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst]
+            },
+            $true
+        )
+
+        $candidateNames = @(
+            $commandAsts |
+                ForEach-Object { $_.GetCommandName() } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+
+        # Prioritize direct Set-Location calls first, then wrappers/helpers.
+        $prioritized = @(
+            $candidateNames | Where-Object { $_ -ieq 'Microsoft.PowerShell.Management\Set-Location' }
+            $candidateNames | Where-Object { $_ -ieq 'Set-Location' }
+            $candidateNames | Where-Object { $_ -ieq 'Set-LocationEx' }
+            $candidateNames | Where-Object { $_ -ieq 'Invoke-WtOriginalSetLocation' }
+            $candidateNames | Where-Object { $_ -match 'Set-Location' -and $_ -inotmatch 'Microsoft\.PowerShell\.Management\\Set-Location|Set-Location|Set-LocationEx|Invoke-WtOriginalSetLocation' }
+        )
+
+        $unique = @()
+        foreach ($name in $prioritized) {
+            if ($name -inotin $unique) {
+                $unique += $name
+            }
+        }
+
+        return @(
+            $unique | ForEach-Object {
+                [PSCustomObject]@{
+                    Name     = $_
+                    IsDirect = $scriptText -match "(\b|\\)$([Regex]::Escape($_))\b"
+                }
+            }
+        )
+    }
+
+    function Resolve-SetLocationGraphNode {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Name,
+            [int]$Depth = 0,
+            [Parameter(Mandatory = $true)]
+            [hashtable]$Visited
+        )
+
+        if ($Depth -ge $MaxDepth) {
+            return [PSCustomObject]@{
+                Name             = $Name
+                Exists           = $false
+                CommandType      = 'Unknown'
+                IsOriginal       = $false
+                IsWrapped        = $false
+                Source           = $null
+                ScriptPreview    = $null
+                InnerCalls       = @()
+                AnalysisWarnings = @("MaxDepth reached ($MaxDepth).")
+            }
+        }
+
+        $command = Get-Command -Name $Name -ErrorAction SilentlyContinue
+        if ($null -eq $command) {
+            return [PSCustomObject]@{
+                Name             = $Name
+                Exists           = $false
+                CommandType      = 'NotFound'
+                IsOriginal       = $false
+                IsWrapped        = $false
+                Source           = $null
+                ScriptPreview    = $null
+                InnerCalls       = @()
+                AnalysisWarnings = @("Command not found.")
+            }
+        }
+
+        $scriptText = if ($command.CommandType -eq 'Function') { $command.ScriptBlock.ToString() } else { $null }
+        $identity = "$($command.CommandType)|$($command.Name)|$($command.Source)|$scriptText"
+        if ($Visited.ContainsKey($identity)) {
+            return [PSCustomObject]@{
+                Name             = $command.Name
+                Exists           = $true
+                CommandType      = "$($command.CommandType)"
+                IsOriginal       = $false
+                IsWrapped        = $false
+                Source           = $command.Source
+                ScriptPreview    = if ($scriptText) { $scriptText.Trim() } else { $null }
+                InnerCalls       = @()
+                AnalysisWarnings = @('Cycle detected. Stopping recursion.')
+            }
+        }
+        $Visited[$identity] = $true
+
+        $isOriginal = $command.CommandType -eq 'Cmdlet' -and $command.Name -eq 'Set-Location' -and $command.Source -eq 'Microsoft.PowerShell.Management'
+        $innerCalls = @()
+        $warnings = @()
+
+        if ($command.CommandType -eq 'Function') {
+            $candidates = Resolve-SetLocationInnerCandidates -Command $command
+            foreach ($candidate in $candidates) {
+                $targetName = $candidate.Name
+                if ($targetName -ieq $command.Name -and $command.CommandType -eq 'Function') {
+                    continue
+                }
+
+                $innerCalls += [PSCustomObject]@{
+                    CallName   = $targetName
+                    IsDirect   = $candidate.IsDirect
+                    InnerGraph = Resolve-SetLocationGraphNode -Name $targetName -Depth ($Depth + 1) -Visited $Visited
+                }
+            }
+
+            if ($innerCalls.Count -eq 0 -and $scriptText -match '(?m)^\s*&\s*\$') {
+                $warnings += 'Function appears to invoke a scriptblock variable; static inner-command resolution may be incomplete.'
+            }
+        }
+
+        return [PSCustomObject]@{
+            Name             = $command.Name
+            Exists           = $true
+            CommandType      = "$($command.CommandType)"
+            IsOriginal       = $isOriginal
+            IsWrapped        = ($command.CommandType -eq 'Function')
+            Source           = $command.Source
+            ScriptPreview    = if ($scriptText) { ($scriptText.Trim() -replace '\s+', ' ') } else { $null }
+            InnerCalls       = $innerCalls
+            AnalysisWarnings = $warnings
+        }
+    }
+
+    $visited = @{}
+    Resolve-SetLocationGraphNode -Name $CommandName -Depth 0 -Visited $visited
+}
+
+function global:Show-SetLocationWrapperGraph {
+    [CmdletBinding()]
+    param(
+        [string]$CommandName = 'Set-Location',
+        [int]$MaxDepth = 16
+    )
+
+    function Format-SetLocationGraphNode {
+        param(
+            [Parameter(Mandatory = $true)]
+            [psobject]$Node,
+            [string]$Indent = '',
+            [switch]$IsRoot
+        )
+
+        $type = if ($Node.Exists) { $Node.CommandType } else { 'Missing' }
+        $flags = @()
+        if ($Node.IsOriginal) { $flags += 'original' }
+        if ($Node.IsWrapped) { $flags += 'wrapped' }
+        if ($flags.Count -eq 0) { $flags += 'plain' }
+        $flagText = $flags -join ','
+
+        $prefix = if ($IsRoot) { '' } else { "$Indent- " }
+        $line = "{0}{1} [{2}] ({3})" -f $prefix, $Node.Name, $type, $flagText
+        Write-Output $line
+
+        foreach ($warning in @($Node.AnalysisWarnings)) {
+            Write-Output ("{0}  ! {1}" -f $Indent, $warning)
+        }
+
+        foreach ($inner in @($Node.InnerCalls)) {
+            $callMeta = if ($inner.IsDirect) { 'direct' } else { 'indirect' }
+            Write-Output ("{0}  -> {1} [{2}]" -f $Indent, $inner.CallName, $callMeta)
+            Format-SetLocationGraphNode -Node $inner.InnerGraph -Indent ($Indent + '    ')
+        }
+    }
+
+    $graph = Get-SetLocationWrapperGraph -CommandName $CommandName -MaxDepth $MaxDepth
+    Format-SetLocationGraphNode -Node $graph -IsRoot
 }
 
 Register-GitWorktreeProvider

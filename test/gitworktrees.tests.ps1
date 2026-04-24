@@ -66,4 +66,40 @@ Remove-Module GitWorktrees -Force
         $result.ExitCode | Should -Be 0
         $result.Output[-1] | Should -Be "1"
     }
+
+    It "returns graph showing wrapped Set-Location and inner original cmdlet" {
+        $scriptText = @"
+Import-Module -Name '$GitWorktreesModulePath' -Force
+`$graph = Get-SetLocationWrapperGraph
+function Find-OriginalNode([object]`$node) {
+    if (`$null -eq `$node) { return `$false }
+    if (`$node.IsOriginal -and `$node.CommandType -eq 'Cmdlet') { return `$true }
+    foreach (`$inner in @(`$node.InnerCalls)) {
+        if (Find-OriginalNode `$inner.InnerGraph) { return `$true }
+    }
+    return `$false
+}
+`$firstInner = @(`$graph.InnerCalls | Where-Object { `$_.CallName -eq 'Set-LocationEx' } | Select-Object -First 1)
+`$hasOriginalInChain = Find-OriginalNode `$graph
+Remove-Module GitWorktrees -Force
+'{0}|{1}|{2}|{3}' -f `$graph.IsWrapped, `$firstInner.CallName, `$firstInner.InnerGraph.IsWrapped, `$hasOriginalInChain
+"@
+        $result = Invoke-IsolatedPwsh -ScriptText $scriptText
+
+        $result.ExitCode | Should -Be 0
+        $result.Output[-1] | Should -Be "True|Set-LocationEx|True|True"
+    }
+
+    It "can analyze original Set-Location cmdlet node directly" {
+        $scriptText = @"
+Import-Module -Name '$GitWorktreesModulePath' -Force
+`$graph = Get-SetLocationWrapperGraph -CommandName 'Microsoft.PowerShell.Management\Set-Location'
+Remove-Module GitWorktrees -Force
+'{0}|{1}|{2}' -f `$graph.CommandType, `$graph.IsOriginal, `$graph.IsWrapped
+"@
+        $result = Invoke-IsolatedPwsh -ScriptText $scriptText
+
+        $result.ExitCode | Should -Be 0
+        $result.Output[-1] | Should -Be "Cmdlet|True|False"
+    }
 }
