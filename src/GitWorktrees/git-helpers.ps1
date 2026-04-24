@@ -192,11 +192,11 @@ function global:Set-LocationEx {
             }
         }
 
-        Microsoft.PowerShell.Management\Set-Location -Path $targetPath -PassThru:$PassThru
+        Invoke-WtOriginalSetLocation -Path $targetPath -PassThru:$PassThru
         return
     }
 
-    Microsoft.PowerShell.Management\Set-Location @PSBoundParameters
+    Invoke-WtOriginalSetLocation @PSBoundParameters
 }
 
 Register-ArgumentCompleter -CommandName Set-LocationEx, Set-Location, cd, Get-ChildItem, ls, dir -ParameterName Path -ScriptBlock {
@@ -236,32 +236,78 @@ Register-ArgumentCompleter -CommandName Set-LocationEx, Set-Location, cd, Get-Ch
     }
 }
 
-function script:Enable-WtCdAliasOverride {
-    if (-not $script:WtCdAliasStateInitialized) {
-        $existingCdAlias = Get-Alias -Name cd -Scope Global -ErrorAction SilentlyContinue
-        $previousDefinition = if ($null -ne $existingCdAlias) { $existingCdAlias.Definition } else { $null }
-        # Never persist our own override as the "original" alias target.
-        $script:WtCdPreviousDefinition = if ($previousDefinition -eq 'Set-LocationEx') { 'Set-Location' } else { $previousDefinition }
-        $script:WtCdAliasStateInitialized = $true
+function script:Test-WtSetLocationWrapperPresent {
+    $cmd = Get-Command -Name Set-Location -CommandType Function -ErrorAction SilentlyContinue
+    if ($null -eq $cmd) {
+        return $false
     }
 
-    Set-Alias -Name cd -Value Set-LocationEx -Option AllScope -Scope Global
+    return $cmd.ScriptBlock.ToString().Contains('Set-LocationEx @PSBoundParameters')
 }
 
-function script:Restore-WtCdAliasOverride {
-    if (-not $script:WtCdAliasStateInitialized) {
+function script:Invoke-WtOriginalSetLocation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0, ValueFromPipelineByPropertyName = $true)]
+        [string]$Path,
+
+        [switch]$PassThru
+    )
+
+    if ($null -ne $script:WtPreviousSetLocationScriptBlock) {
+        & $script:WtPreviousSetLocationScriptBlock @PSBoundParameters
         return
     }
 
-    if ([string]::IsNullOrWhiteSpace($script:WtCdPreviousDefinition) -or $script:WtCdPreviousDefinition -eq 'Set-LocationEx') {
-        Set-Alias -Name cd -Value Set-Location -Option AllScope -Scope Global
-    }
-    else {
-        Set-Alias -Name cd -Value $script:WtCdPreviousDefinition -Option AllScope -Scope Global
+    Microsoft.PowerShell.Management\Set-Location @PSBoundParameters
+}
+
+function script:Enable-WtSetLocationOverride {
+    if (Test-WtSetLocationWrapperPresent) {
+        $script:WtSetLocationStateInitialized = $true
+        return
     }
 
-    $script:WtCdAliasStateInitialized = $false
-    $script:WtCdPreviousDefinition = $null
+    if (-not $script:WtSetLocationStateInitialized) {
+        $existingSetLocation = Get-Command -Name Set-Location -CommandType Function -ErrorAction SilentlyContinue
+        $script:WtPreviousSetLocationScriptBlock = if ($null -ne $existingSetLocation) { $existingSetLocation.ScriptBlock } else { $null }
+        $script:WtSetLocationStateInitialized = $true
+    }
+
+    function global:Set-Location {
+        [CmdletBinding()]
+        param(
+            [Parameter(Position = 0, ValueFromPipelineByPropertyName = $true)]
+            [string]$Path,
+
+            [switch]$PassThru
+        )
+
+        Set-LocationEx @PSBoundParameters
+    }
+}
+
+function script:Restore-WtSetLocationOverride {
+    if (-not $script:WtSetLocationStateInitialized) {
+        return
+    }
+
+    if (-not (Test-WtSetLocationWrapperPresent)) {
+        # Another module may have changed Set-Location after us; avoid clobbering it.
+        $script:WtSetLocationStateInitialized = $false
+        $script:WtPreviousSetLocationScriptBlock = $null
+        return
+    }
+
+    if ($null -ne $script:WtPreviousSetLocationScriptBlock) {
+        Set-Item -Path Function:\global:Set-Location -Value $script:WtPreviousSetLocationScriptBlock
+    }
+    else {
+        Remove-Item -Path Function:\global:Set-Location -ErrorAction SilentlyContinue
+    }
+
+    $script:WtSetLocationStateInitialized = $false
+    $script:WtPreviousSetLocationScriptBlock = $null
 }
 
 function script:Register-WtOnRemoveHandler {
@@ -275,25 +321,17 @@ function script:Register-WtOnRemoveHandler {
     }
 
     $previousOnRemove = $module.OnRemove
-    $wtCdPreviousDefinition = $script:WtCdPreviousDefinition
     $module.OnRemove = {
         if ($null -ne $previousOnRemove) {
             & $previousOnRemove
         }
 
-        $targetCdCommand = if ([string]::IsNullOrWhiteSpace($wtCdPreviousDefinition) -or $wtCdPreviousDefinition -eq 'Set-LocationEx') {
-            'Set-Location'
-        }
-        else {
-            $wtCdPreviousDefinition
-        }
-
-        Set-Alias -Name cd -Value $targetCdCommand -Option AllScope -Scope Global -ErrorAction SilentlyContinue
+        Restore-WtSetLocationOverride
     }.GetNewClosure()
 
     $script:WtOnRemoveHandlerRegistered = $true
 }
 
 Register-GitWorktreeProvider
-Enable-WtCdAliasOverride
+Enable-WtSetLocationOverride
 Register-WtOnRemoveHandler
